@@ -1,0 +1,1306 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+  <title>360° Capture</title>
+  <meta name="description" content="Guided 360° panorama capture with gyroscope checkpoints." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+
+  <style>
+    *,
+    *::before,
+    *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    :root {
+      --bg: #07090f;
+      --surface: #0f1219;
+      --glass: rgba(255, 255, 255, 0.06);
+      --border: rgba(255, 255, 255, 0.09);
+      --accent: #6c63ff;
+      --accent2: #00d4ff;
+      --green: #22c55e;
+      --orange: #f59e0b;
+      --red: #ef4444;
+      --text: #e8eaf0;
+      --muted: #6b7280;
+      --ease: cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    html,
+    body {
+      height: 100%;
+      overflow: hidden;
+      font-family: 'Inter', system-ui, sans-serif;
+      background: #000;
+      color: var(--text);
+      -webkit-user-select: none;
+      user-select: none;
+    }
+
+    #camera-feed {
+      position: fixed;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      z-index: 0;
+      background: #000;
+    }
+
+    .overlay {
+      position: fixed;
+      inset: 0;
+      z-index: 10;
+      pointer-events: none;
+    }
+
+    .overlay>* {
+      pointer-events: auto;
+    }
+
+    .top-bar {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      z-index: 20;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 14px 18px;
+      background: linear-gradient(to bottom, rgba(0, 0, 0, 0.75) 0%, transparent 100%);
+    }
+
+    .top-left {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .btn-back {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      background: rgba(255, 255, 255, 0.12);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      color: #fff;
+      padding: 7px 14px;
+      border-radius: 9px;
+      font-size: 13px;
+      font-family: inherit;
+      cursor: pointer;
+      text-decoration: none;
+      transition: background 0.2s;
+    }
+
+    .btn-back:hover { background: rgba(255, 255, 255, 0.2); }
+
+    .session-pill {
+      background: rgba(108, 99, 255, 0.25);
+      border: 1px solid rgba(108, 99, 255, 0.45);
+      color: #c4c0ff;
+      padding: 5px 12px;
+      border-radius: 20px;
+      font-size: 12px;
+      font-weight: 500;
+      max-width: 160px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .top-right {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .counter-badge {
+      background: rgba(0, 0, 0, 0.55);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: 20px;
+      padding: 5px 12px;
+      font-size: 13px;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .counter-badge .num { color: var(--accent2); }
+
+    .btn-flip {
+      background: rgba(255, 255, 255, 0.12);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      color: #fff;
+      border-radius: 50%;
+      width: 38px;
+      height: 38px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 18px;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+
+    .btn-flip:hover { background: rgba(255, 255, 255, 0.22); }
+
+    .ar-target {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      width: 140px;
+      height: 200px;
+      border: 3px solid rgba(255, 255, 255, 0.9);
+      background-color: var(--green);
+      -webkit-mask-image: radial-gradient(circle at center, transparent 38px, black 39.5px);
+      mask-image: radial-gradient(circle at center, transparent 38px, black 39.5px);
+      transform: translate(-50%, -50%);
+      z-index: 11;
+      pointer-events: none;
+      transition: opacity 0.2s;
+    }
+
+    .ar-finder {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      width: 76px;
+      height: 76px;
+      border-radius: 50%;
+      background-color: white;
+      transform: translate(-50%, -50%);
+      z-index: 12;
+      pointer-events: none;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+    }
+
+    .ar-arrow {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      width: 28px;
+      height: 28px;
+      margin-top: -14px;
+      margin-left: -14px;
+      z-index: 10;
+      pointer-events: none;
+      display: none;
+      filter: drop-shadow(0px 2px 5px rgba(0, 0, 0, 0.4));
+    }
+
+    .ar-arrow svg { width: 100%; height: 100%; display: block; }
+    .ar-arrow.show { display: block; }
+
+    .hold-text {
+      font-size: 16px;
+      font-weight: 800;
+      color: var(--green);
+      opacity: 0;
+      transition: opacity 0.1s;
+    }
+
+    .holding .hold-text { opacity: 1; }
+
+    .hold-ring-svg {
+      position: absolute;
+      top: -10px;
+      left: -10px;
+      width: 96px;
+      height: 96px;
+      transform: rotate(-90deg);
+      opacity: 0;
+      transition: opacity 0.1s;
+    }
+
+    .holding .hold-ring-svg { opacity: 1; }
+
+    .minimap {
+      position: fixed;
+      bottom: 110px;
+      left: 50%;
+      transform: translateX(-50%);
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      z-index: 15;
+    }
+
+    .minimap-row { display: flex; justify-content: center; gap: 16px; }
+    .minimap-row:nth-child(2) { margin-left: 12px; }
+
+    .minimap-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background-color: var(--green);
+      transition: background-color 0.3s, box-shadow 0.3s, opacity 0.3s;
+    }
+
+    .minimap-dot.done   { opacity: 0; pointer-events: none; }
+    .minimap-dot.target { background-color: white; box-shadow: 0 0 8px white; opacity: 1; }
+
+    #gyro-display {
+      position: fixed;
+      top: 80px;
+      left: 18px;
+      z-index: 20;
+      background: rgba(0, 0, 0, 0.55);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 10px;
+      padding: 8px 12px;
+      font-size: 11px;
+      color: var(--muted);
+      backdrop-filter: blur(6px);
+      pointer-events: none;
+      line-height: 1.8;
+    }
+
+    #gyro-display span { color: var(--accent2); font-weight: 600; }
+
+    #flash {
+      position: fixed;
+      inset: 0;
+      z-index: 50;
+      background: #fff;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.08s;
+    }
+
+    #flash.on { opacity: 0.85; }
+
+    .bottom-bar {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      z-index: 20;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 20px 24px 36px;
+      background: linear-gradient(to top, rgba(0, 0, 0, 0.85) 0%, transparent 100%);
+      gap: 16px;
+    }
+
+    .progress-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      width: 100%;
+      max-width: 360px;
+    }
+
+    .progress-label { font-size: 12px; color: var(--muted); white-space: nowrap; }
+
+    .progress-bar-wrap {
+      flex: 1;
+      height: 5px;
+      background: rgba(255, 255, 255, 0.12);
+      border-radius: 3px;
+      overflow: hidden;
+    }
+
+    .progress-bar {
+      height: 100%;
+      background: linear-gradient(90deg, var(--accent), var(--accent2));
+      border-radius: 3px;
+      transition: width 0.4s var(--ease);
+    }
+
+    .progress-pct { font-size: 12px; color: var(--accent2); font-weight: 600; white-space: nowrap; }
+
+    .action-row {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 24px;
+      width: 100%;
+    }
+
+    .btn-capture {
+      width: 72px;
+      height: 72px;
+      border-radius: 50%;
+      background: #fff;
+      border: 4px solid rgba(255, 255, 255, 0.4);
+      cursor: pointer;
+      position: relative;
+      box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.15), 0 8px 30px rgba(0, 0, 0, 0.5);
+      transition: transform 0.15s var(--ease), box-shadow 0.15s;
+      flex-shrink: 0;
+    }
+
+    .btn-capture:active { transform: scale(0.92); }
+
+    .btn-capture.capturing {
+      background: var(--green);
+      box-shadow: 0 0 0 6px rgba(34, 197, 94, 0.3), 0 8px 30px rgba(0, 0, 0, 0.4);
+    }
+
+    .btn-capture::before {
+      content: '';
+      position: absolute;
+      inset: 8px;
+      border: 2.5px solid rgba(0, 0, 0, 0.25);
+      border-radius: 50%;
+    }
+
+    .btn-stitch {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      background: linear-gradient(135deg, var(--accent), #5a52e0);
+      color: #fff;
+      border: none;
+      padding: 13px 22px;
+      border-radius: 14px;
+      font-size: 14px;
+      font-weight: 600;
+      font-family: inherit;
+      cursor: pointer;
+      box-shadow: 0 6px 22px rgba(108, 99, 255, 0.4);
+      transition: transform 0.2s, box-shadow 0.2s, opacity 0.2s;
+      flex-shrink: 0;
+    }
+
+    .btn-stitch:hover { transform: translateY(-2px); box-shadow: 0 10px 30px rgba(108, 99, 255, 0.55); }
+    .btn-stitch:active { transform: translateY(0); }
+    .btn-stitch:disabled { opacity: 0.45; cursor: not-allowed; transform: none !important; }
+
+    .btn-stitch .spinner {
+      width: 16px;
+      height: 16px;
+      border: 2.5px solid rgba(255, 255, 255, 0.3);
+      border-top-color: #fff;
+      border-radius: 50%;
+      animation: spin 0.65s linear infinite;
+      display: none;
+    }
+
+    .btn-stitch.loading .spinner  { display: block; }
+    .btn-stitch.loading .btn-label { display: none; }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .btn-import {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      background: rgba(255, 255, 255, 0.1);
+      border: 1px solid rgba(255, 255, 255, 0.18);
+      color: #fff;
+      border-radius: 12px;
+      padding: 10px 16px;
+      font-size: 13px;
+      font-weight: 500;
+      font-family: inherit;
+      cursor: pointer;
+      transition: background 0.2s, transform 0.2s;
+    }
+
+    .btn-import:hover { background: rgba(255, 255, 255, 0.18); transform: translateY(-1px); }
+
+    #toast {
+      position: fixed;
+      bottom: 140px;
+      left: 50%;
+      transform: translateX(-50%) translateY(20px);
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 10px 20px;
+      font-size: 13px;
+      box-shadow: 0 8px 30px rgba(0, 0, 0, 0.5);
+      opacity: 0;
+      transition: opacity 0.3s, transform 0.3s;
+      pointer-events: none;
+      z-index: 100;
+      max-width: 300px;
+      text-align: center;
+    }
+
+    #toast.show   { opacity: 1; transform: translateX(-50%) translateY(0); }
+    #toast.success { border-color: rgba(34, 197, 94, 0.4);  color: var(--green); }
+    #toast.error   { border-color: rgba(239, 68, 68, 0.4);  color: var(--red); }
+    #toast.info    { border-color: rgba(0, 212, 255, 0.3);  color: var(--accent2); }
+
+    #no-camera {
+      position: fixed;
+      inset: 0;
+      z-index: 200;
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      background: rgba(7, 9, 15, 0.92);
+      backdrop-filter: blur(18px);
+      -webkit-backdrop-filter: blur(18px);
+      text-align: center;
+      padding: 24px;
+    }
+
+    .cam-permission-card {
+      background: linear-gradient(160deg, #13172a 0%, #0d1020 100%);
+      border: 1px solid rgba(108, 99, 255, 0.25);
+      border-radius: 28px;
+      padding: 36px 28px 32px;
+      max-width: 340px;
+      width: 100%;
+      box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.04),
+        0 40px 80px rgba(0, 0, 0, 0.6),
+        0 0 60px rgba(108, 99, 255, 0.12);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 0;
+      animation: cardIn 0.45s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+    }
+
+    @keyframes cardIn {
+      from { transform: scale(0.82) translateY(30px); opacity: 0; }
+      to   { transform: scale(1) translateY(0); opacity: 1; }
+    }
+
+    .cam-icon-wrap {
+      width: 86px;
+      height: 86px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, rgba(108, 99, 255, 0.2), rgba(0, 212, 255, 0.1));
+      border: 1.5px solid rgba(108, 99, 255, 0.35);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 22px;
+      position: relative;
+      box-shadow: 0 0 30px rgba(108, 99, 255, 0.2);
+    }
+
+    .cam-icon-wrap::before {
+      content: '';
+      position: absolute;
+      inset: -6px;
+      border-radius: 50%;
+      border: 1px solid rgba(108, 99, 255, 0.15);
+      animation: pulseRing 2s ease-out infinite;
+    }
+
+    .cam-icon-wrap::after {
+      content: '';
+      position: absolute;
+      inset: -12px;
+      border-radius: 50%;
+      border: 1px solid rgba(108, 99, 255, 0.08);
+      animation: pulseRing 2s ease-out 0.4s infinite;
+    }
+
+    @keyframes pulseRing {
+      0%   { transform: scale(1); opacity: 1; }
+      100% { transform: scale(1.25); opacity: 0; }
+    }
+
+    .cam-icon-wrap svg { width: 38px; height: 38px; color: var(--accent2); }
+
+    .cam-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: rgba(108, 99, 255, 0.15);
+      border: 1px solid rgba(108, 99, 255, 0.3);
+      color: #c4c0ff;
+      padding: 4px 12px;
+      border-radius: 20px;
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+      margin-bottom: 14px;
+    }
+
+    .cam-badge-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--accent);
+      animation: blink 1.4s ease-in-out infinite;
+    }
+
+    @keyframes blink {
+      0%, 100% { opacity: 1; }
+      50%       { opacity: 0.3; }
+    }
+
+    #no-camera h2 {
+      font-size: 21px;
+      font-weight: 800;
+      background: linear-gradient(135deg, #fff 0%, #c4c0ff 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      margin-bottom: 10px;
+      line-height: 1.25;
+    }
+
+    #no-camera p {
+      font-size: 13.5px;
+      color: var(--muted);
+      max-width: 260px;
+      line-height: 1.75;
+      margin-bottom: 28px;
+    }
+
+    .btn-request-cam {
+      width: 100%;
+      background: linear-gradient(135deg, var(--accent) 0%, #5a52e0 100%);
+      color: #fff;
+      border: none;
+      border-radius: 14px;
+      padding: 15px 26px;
+      font-size: 15px;
+      font-weight: 700;
+      font-family: inherit;
+      cursor: pointer;
+      box-shadow: 0 8px 24px rgba(108, 99, 255, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.12);
+      transition: transform 0.18s, box-shadow 0.18s;
+      letter-spacing: 0.2px;
+    }
+
+    .btn-request-cam:hover  { transform: translateY(-2px); box-shadow: 0 12px 30px rgba(108, 99, 255, 0.6); }
+    .btn-request-cam:active { transform: translateY(0); }
+
+    .cam-note {
+      margin-top: 16px;
+      font-size: 11.5px;
+      color: rgba(107, 114, 128, 0.8);
+      line-height: 1.6;
+    }
+
+    .cam-note span { color: rgba(164, 167, 180, 0.7); }
+
+    #canvas { display: none; }
+
+    #gyro-notice {
+      position: fixed;
+      top: 80px;
+      right: 18px;
+      z-index: 20;
+      background: rgba(245, 158, 11, 0.15);
+      border: 1px solid rgba(245, 158, 11, 0.35);
+      border-radius: 10px;
+      padding: 7px 12px;
+      font-size: 11px;
+      color: var(--orange);
+      pointer-events: none;
+      display: none;
+      max-width: 170px;
+      line-height: 1.5;
+    }
+
+    #finish-screen {
+      position: fixed;
+      inset: 0;
+      z-index: 60;
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 20px;
+      text-align: center;
+      padding: 32px;
+      background: rgba(7, 9, 15, 0.97);
+      backdrop-filter: blur(20px);
+    }
+
+    #finish-screen .finish-icon { font-size: 70px; animation: pop 0.5s var(--ease) both; }
+
+    @keyframes pop {
+      0%   { transform: scale(0); opacity: 0; }
+      100% { transform: scale(1); opacity: 1; }
+    }
+
+    #finish-screen h2 {
+      font-size: 26px;
+      font-weight: 800;
+      background: linear-gradient(135deg, var(--text), var(--accent2));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    #finish-screen p { font-size: 14px; color: var(--muted); max-width: 280px; line-height: 1.7; }
+
+    .finish-actions { display: flex; gap: 12px; flex-wrap: wrap; justify-content: center; }
+
+    .btn-finish-stitch {
+      background: linear-gradient(135deg, var(--accent), #5a52e0);
+      color: #fff;
+      border: none;
+      border-radius: 12px;
+      padding: 13px 26px;
+      font-size: 15px;
+      font-weight: 700;
+      font-family: inherit;
+      cursor: pointer;
+      box-shadow: 0 6px 22px rgba(108, 99, 255, 0.45);
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+
+    .btn-finish-stitch:hover { transform: translateY(-2px); box-shadow: 0 10px 30px rgba(108, 99, 255, 0.6); }
+
+    .btn-finish-stitch .spinner {
+      width: 16px;
+      height: 16px;
+      border: 2.5px solid rgba(255, 255, 255, 0.3);
+      border-top-color: #fff;
+      border-radius: 50%;
+      animation: spin 0.65s linear infinite;
+      display: none;
+    }
+
+    .btn-finish-stitch.loading .spinner   { display: inline-block; }
+    .btn-finish-stitch.loading .btn-label { display: none; }
+
+    .btn-finish-more {
+      background: var(--glass);
+      border: 1px solid var(--border);
+      color: var(--text);
+      border-radius: 12px;
+      padding: 13px 22px;
+      font-size: 14px;
+      font-weight: 600;
+      font-family: inherit;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+
+    .btn-finish-more:hover { background: rgba(255, 255, 255, 0.1); }
+
+    #import-input { display: none; }
+
+    /* direction hint */
+    #direction-hint {
+      position: fixed;
+      bottom: 170px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 20;
+      font-size: 12px;
+      color: rgba(255,255,255,0.55);
+      pointer-events: none;
+      white-space: nowrap;
+    }
+  </style>
+</head>
+
+<body>
+
+  <!-- Hidden canvas for frame capture -->
+  <canvas id="canvas"></canvas>
+
+  <!-- Camera video feed -->
+  <video id="camera-feed" autoplay playsinline muted></video>
+
+  <!-- Flash effect -->
+  <div id="flash"></div>
+
+  <!-- No camera / permission state -->
+  <div id="no-camera">
+    <div class="cam-permission-card">
+      <div class="cam-icon-wrap">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"
+          stroke-linejoin="round">
+          <path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z" />
+          <circle cx="12" cy="13" r="4" />
+        </svg>
+      </div>
+      <div class="cam-badge">
+        <span class="cam-badge-dot"></span>
+        Permission Required
+      </div>
+      <h2>Camera Access Needed</h2>
+      <p>Allow camera access to capture your 360° panorama. Tap below and accept the browser prompt.</p>
+      <button class="btn-request-cam" id="btn-request-cam">📷 Allow Camera</button>
+      <div class="cam-note">
+        Your camera is only used locally —<br>
+        <span>no video is recorded or stored.</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Minimap dots -->
+  <div class="minimap" id="minimap"></div>
+
+  <!-- AR Target -->
+  <div id="ar-target" class="ar-target"></div>
+
+  <!-- AR Finder -->
+  <div id="ar-finder" class="ar-finder">
+    <div class="hold-text">HOLD</div>
+    <svg class="hold-ring-svg" viewBox="0 0 100 100">
+      <circle cx="50" cy="50" r="46" fill="none" stroke="rgba(34,197,94,0.3)" stroke-width="8" />
+      <circle cx="50" cy="50" r="46" fill="none" stroke="#22c55e" stroke-width="8" stroke-dasharray="289"
+        stroke-dashoffset="289" id="hold-ring-progress" />
+    </svg>
+  </div>
+
+  <!-- Arrow indicator -->
+  <div id="ar-arrow" class="ar-arrow">
+    <svg viewBox="0 0 24 24" fill="white">
+      <path d="M5 3L19 12L5 21V3Z" />
+    </svg>
+  </div>
+
+  <!-- Gyro angle debug display -->
+  <div id="gyro-display">
+    α <span id="g-alpha">—</span>°
+    &nbsp;β <span id="g-beta">—</span>°
+    &nbsp;γ <span id="g-gamma">—</span>°
+  </div>
+
+  <!-- Gyro unavailable notice -->
+  <div id="gyro-notice">⚠️ Gyroscope not detected.<br>Tap shutter manually.</div>
+
+  <!-- Direction hint -->
+  <div id="direction-hint">Point camera forward to begin</div>
+
+  <!-- Top bar -->
+  <div class="top-bar">
+    <div class="top-left">
+      <a class="btn-back" href="index.html">← Home</a>
+      <div class="session-pill" id="session-name">Loading…</div>
+    </div>
+    <div class="top-right">
+      <div class="counter-badge">
+        📷 <span class="num" id="captured-count">0</span>
+      </div>
+      <button class="btn-flip" id="btn-flip" title="Flip Camera">🔄</button>
+    </div>
+  </div>
+
+  <!-- Bottom controls -->
+  <div class="bottom-bar">
+    <div class="progress-row">
+      <span class="progress-label" id="progress-label">0 / 36</span>
+      <div class="progress-bar-wrap">
+        <div class="progress-bar" id="progress-bar" style="width:0%"></div>
+      </div>
+      <span class="progress-pct" id="progress-pct">0%</span>
+    </div>
+    <div class="action-row">
+      <button class="btn-import" id="btn-import">📂 Import</button>
+      <button class="btn-capture" id="btn-capture" title="Capture photo"></button>
+      <button class="btn-stitch" id="btn-stitch" disabled>
+        <div class="spinner"></div>
+        <span class="btn-label">🔗 Stitch</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- Import file input (hidden) -->
+  <input type="file" id="import-input" accept="image/*" />
+
+  <!-- Toast -->
+  <div id="toast"></div>
+
+  <!-- Finish screen -->
+  <div id="finish-screen">
+    <div class="finish-icon">🎉</div>
+    <h2>All Checkpoints Done!</h2>
+    <p id="finish-msg">You've captured all 36 photos. Ready to stitch your 360° panorama!</p>
+    <div class="finish-actions">
+      <button class="btn-finish-stitch" id="btn-finish-stitch">
+        <span class="spinner"></span>
+        <span class="btn-label">🔗 Create Panorama</span>
+      </button>
+      <button class="btn-finish-more" id="btn-finish-more">📷 Add More</button>
+    </div>
+  </div>
+
+  <script src="config.js"></script>
+  <script>
+    // ── API helper ────────────────────────────────────────────────────────────
+    function api(path, opts) {
+      return fetch(API_BASE + path, opts);
+    }
+
+    // ── Read session ID from URL query string ─────────────────────────────────
+    let SESSION_ID = new URLSearchParams(location.search).get('session');
+    let isNewSession = false;
+    
+    if (!SESSION_ID) {
+      // Create a local session ID if navigating directly to camera without query param
+      SESSION_ID = 'sess_' + Date.now().toString(36) + Math.random().toString(36).substring(2, 6);
+      isNewSession = true;
+      // Replace URL string so refresh doesn't wipe progress
+      window.history.replaceState({}, '', `?session=${SESSION_ID}`);
+      
+      document.getElementById('session-name').textContent = 'New Session';
+    }
+
+    // Update page title
+    document.title = `360° Capture`;
+
+    // ── Load session info from API ─────────────────────────────────────────────
+    let capturedCount = 0;
+
+    async function loadSession() {
+      if (isNewSession) return; // Wait until first photo
+      
+      try {
+        const res  = await api(`/api/session/${SESSION_ID}`);
+        const data = await res.json();
+        // Just fail silently and let it be a new session if the backend doesn't know about it yet
+        if (!data.success) { 
+           isNewSession = true;
+           document.getElementById('session-name').textContent = 'New Session';
+           return; 
+        }
+
+        document.getElementById('session-name').textContent = data.name;
+        document.title = `360° Capture — ${data.name}`;
+        capturedCount = data.capture_count || 0;
+
+        // Mark already-captured checkpoints
+        if (capturedCount > 0) {
+          let n = Math.min(capturedCount, TOTAL_TARGETS);
+          for (let i = 0; i < n; i++) { checkpoints[i].done = true; }
+          for (let i = 0; i < TOTAL_TARGETS; i++) {
+            if (!checkpoints[i].done) { currentTarget = i; break; }
+          }
+          buildGrid();
+          updateProgress();
+          updateDirectionHint();
+          if (n >= TOTAL_TARGETS) showFinish();
+        }
+      } catch (e) {
+        document.getElementById('session-name').textContent = 'Error';
+      }
+    }
+
+    // ════════════════════════════════════════════════════════════════════════════
+    //  360° Guided Capture — Main Script
+    // ════════════════════════════════════════════════════════════════════════════
+
+    const TOTAL_TARGETS = 36;
+    const HOLD_MS = 800;
+    const ANGLE_TOL = 8;
+
+    function buildCheckpoints() {
+      const pts = [];
+      const yawStep = 30;
+      const pitchRows = [-30, 0, 30];
+      pitchRows.forEach(pitch => {
+        for (let yaw = 0; yaw < 360; yaw += yawStep) {
+          pts.push({ yaw, pitch, done: false });
+        }
+      });
+      return pts;
+    }
+
+    let checkpoints = buildCheckpoints();
+    let currentTarget = 0;
+    let holdTimer = null;
+    let holdStart = null;
+    let gyroActive = false;
+    let facingMode = 'environment';
+    let stream = null;
+    let isCapturing = false;
+
+    let devAlpha = 0, devBeta = 0, devGamma = 0;
+
+    const video          = document.getElementById('camera-feed');
+    const canvas         = document.getElementById('canvas');
+    const ctx            = canvas.getContext('2d');
+    const noCamera       = document.getElementById('no-camera');
+    const arTarget       = document.getElementById('ar-target');
+    const arFinder       = document.getElementById('ar-finder');
+    const arArrow        = document.getElementById('ar-arrow');
+    const holdRingProgress = document.getElementById('hold-ring-progress');
+    const dirHint        = document.getElementById('direction-hint');
+    const minimap        = document.getElementById('minimap');
+    const gyroDisplay    = document.getElementById('gyro-display');
+    const gyroNotice     = document.getElementById('gyro-notice');
+    const flashEl        = document.getElementById('flash');
+    const progressBar    = document.getElementById('progress-bar');
+    const progressLabel  = document.getElementById('progress-label');
+    const progressPct    = document.getElementById('progress-pct');
+    const capturedCountEl = document.getElementById('captured-count');
+    const btnCapture     = document.getElementById('btn-capture');
+    const btnStitch      = document.getElementById('btn-stitch');
+    const btnFlip        = document.getElementById('btn-flip');
+    const btnImport      = document.getElementById('btn-import');
+    const importInput    = document.getElementById('import-input');
+    const toastEl        = document.getElementById('toast');
+    const finishScreen   = document.getElementById('finish-screen');
+    const finishMsg      = document.getElementById('finish-msg');
+    const btnFinishStitch = document.getElementById('btn-finish-stitch');
+    const btnFinishMore  = document.getElementById('btn-finish-more');
+
+    // ════════════════════════════════════════════════════════════════════════════
+    // CHECKPOINT MINIMAP
+    // ════════════════════════════════════════════════════════════════════════════
+
+    function buildGrid() {
+      minimap.innerHTML = '';
+      const pitchRows = [-30, 0, 30];
+      pitchRows.forEach(pitch => {
+        const rowEl = document.createElement('div');
+        rowEl.className = 'minimap-row';
+        const rowCps = checkpoints.filter(c => c.pitch === pitch);
+        rowCps.forEach(cp => {
+          const dot = document.createElement('div');
+          dot.className = 'minimap-dot';
+          const index = checkpoints.indexOf(cp);
+          dot.id = `dot-${index}`;
+          rowEl.appendChild(dot);
+        });
+        minimap.appendChild(rowEl);
+      });
+      updateGrid();
+    }
+
+    function updateGrid() {
+      checkpoints.forEach((cp, i) => {
+        const dot = document.getElementById(`dot-${i}`);
+        if (!dot) return;
+        if (cp.done)          dot.className = 'minimap-dot done';
+        else if (i === currentTarget) dot.className = 'minimap-dot target';
+        else                  dot.className = 'minimap-dot';
+      });
+    }
+
+    // ════════════════════════════════════════════════════════════════════════════
+    // PROGRESS
+    // ════════════════════════════════════════════════════════════════════════════
+
+    function updateProgress() {
+      const done = checkpoints.filter(c => c.done).length;
+      const pct = Math.round((done / TOTAL_TARGETS) * 100);
+      progressBar.style.width = pct + '%';
+      progressLabel.textContent = `${done} / ${TOTAL_TARGETS}`;
+      progressPct.textContent = pct + '%';
+      capturedCountEl.textContent = capturedCount;
+      btnStitch.disabled = capturedCount < 2;
+    }
+
+    // ════════════════════════════════════════════════════════════════════════════
+    // CAMERA INIT
+    // ════════════════════════════════════════════════════════════════════════════
+
+    async function startCamera(mode = 'environment') {
+      if (stream) { stream.getTracks().forEach(t => t.stop()); }
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: mode, width: { ideal: 1920 }, height: { ideal: 1080 } },
+          audio: false,
+        });
+        video.srcObject = stream;
+        noCamera.style.display = 'none';
+        facingMode = mode;
+      } catch (err) {
+        console.warn('Camera error:', err);
+        noCamera.style.display = 'flex';
+      }
+    }
+
+    document.getElementById('btn-request-cam').addEventListener('click', () => startCamera());
+    startCamera();
+    btnFlip.addEventListener('click', () => startCamera(facingMode === 'environment' ? 'user' : 'environment'));
+
+    // ════════════════════════════════════════════════════════════════════════════
+    // GYROSCOPE
+    // ════════════════════════════════════════════════════════════════════════════
+
+    async function requestGyro() {
+      if (typeof DeviceOrientationEvent !== 'undefined' &&
+        typeof DeviceOrientationEvent.requestPermission === 'function') {
+        try {
+          const perm = await DeviceOrientationEvent.requestPermission();
+          if (perm !== 'granted') { gyroNotice.style.display = 'block'; return; }
+        } catch { gyroNotice.style.display = 'block'; return; }
+      }
+      window.addEventListener('deviceorientation', onOrientation, true);
+    }
+
+    function onOrientation(e) {
+      if (e.alpha === null) { gyroNotice.style.display = 'block'; return; }
+      gyroActive = true;
+      gyroNotice.style.display = 'none';
+      devAlpha = e.alpha || 0;
+      devBeta  = e.beta  || 0;
+      devGamma = e.gamma || 0;
+      document.getElementById('g-alpha').textContent = devAlpha.toFixed(1);
+      document.getElementById('g-beta').textContent  = devBeta.toFixed(1);
+      document.getElementById('g-gamma').textContent = devGamma.toFixed(1);
+      checkAngle();
+    }
+
+    requestGyro();
+
+    // ════════════════════════════════════════════════════════════════════════════
+    // ANGLE MATCHING
+    // ════════════════════════════════════════════════════════════════════════════
+
+    function checkAngle() {
+      if (!gyroActive || currentTarget >= TOTAL_TARGETS) return;
+      const cp = checkpoints[currentTarget];
+
+      let pitch = devBeta - 90;
+      let dYaw  = devAlpha - cp.yaw;
+      if (dYaw >  180) dYaw -= 360;
+      if (dYaw < -180) dYaw += 360;
+      let dPitch = cp.pitch - pitch;
+
+      let pxPerDeg = window.innerWidth / (facingMode === 'user' ? -110 : 110);
+      let cx = window.innerWidth  / 2;
+      let cy = window.innerHeight / 2;
+      let tx = cx + (dYaw   * pxPerDeg);
+      let ty = cy - (dPitch * pxPerDeg);
+
+      if (typeof window.smoothedTx === 'undefined') { window.smoothedTx = tx; window.smoothedTy = ty; }
+      if (Math.abs(tx - window.smoothedTx) > 800) window.smoothedTx = tx;
+      window.smoothedTx += (tx - window.smoothedTx) * 0.15;
+      window.smoothedTy += (ty - window.smoothedTy) * 0.15;
+
+      let roll = -devGamma;
+      if (devBeta > 90) roll = devGamma;
+
+      arTarget.style.transform = `translate(-50%, -50%) translate(${window.smoothedTx - cx}px, ${window.smoothedTy - cy}px) rotate(${roll}deg)`;
+      arFinder.style.transform = `translate(-50%, -50%)`;
+
+      const distPx = Math.sqrt(Math.pow(window.smoothedTx - cx, 2) + Math.pow(window.smoothedTy - cy, 2));
+      const ALIGN_RADIUS = 30;
+      const onTarget = distPx <= ALIGN_RADIUS;
+
+      if (onTarget) {
+        arFinder.classList.add('holding');
+        arArrow.classList.remove('show');
+        if (!holdStart) holdStart = Date.now();
+        const elapsed = Date.now() - holdStart;
+        const pct = Math.min(elapsed / HOLD_MS, 1);
+        holdRingProgress.style.strokeDashoffset = 289 - (289 * pct);
+        if (elapsed >= HOLD_MS && !isCapturing) captureFrame();
+      } else {
+        cancelHold();
+        if (distPx > 60) {
+          arArrow.classList.add('show');
+          let angle = Math.atan2(window.smoothedTy - cy, window.smoothedTx - cx) * 180 / Math.PI;
+          arArrow.style.transform = `rotate(${angle}deg) translateX(55px)`;
+        } else {
+          arArrow.classList.remove('show');
+        }
+      }
+    }
+
+    setInterval(() => { if (gyroActive) checkAngle(); }, 50);
+
+    function cancelHold() {
+      holdStart = null;
+      arFinder.classList.remove('holding');
+      holdRingProgress.style.strokeDashoffset = 289;
+    }
+
+    // ════════════════════════════════════════════════════════════════════════════
+    // CAPTURE
+    // ════════════════════════════════════════════════════════════════════════════
+
+    async function captureFrame() {
+      if (isCapturing) return;
+      isCapturing = true;
+      triggerFlash();
+
+      const MAX_DIM = 1280;
+      let vw = video.videoWidth  || 1280;
+      let vh = video.videoHeight || 720;
+      if (vw > MAX_DIM || vh > MAX_DIM) {
+        if (vw > vh) { vh = Math.floor(vh * (MAX_DIM / vw)); vw = MAX_DIM; }
+        else         { vw = Math.floor(vw * (MAX_DIM / vh)); vh = MAX_DIM; }
+      }
+      canvas.width = vw;  canvas.height = vh;
+      ctx.drawImage(video, 0, 0, vw, vh);
+
+      canvas.toBlob(async (blob) => {
+        holdRingProgress.style.strokeDashoffset = 0;
+        try {
+          const formData = new FormData();
+          formData.append('image', blob, 'capture.jpg');
+          const res = await api(`/api/upload/${SESSION_ID}`, { method: 'POST', body: formData });
+          if (!res.ok) {
+            const errText = await res.text();
+            throw new Error(`Server returned ${res.status}: ${errText.substring(0, 60)}...`);
+          }
+          const data = await res.json();
+          if (data.success) {
+            capturedCount = data.total;
+            if (currentTarget < TOTAL_TARGETS) checkpoints[currentTarget].done = true;
+            let next = -1;
+            for (let i = 0; i < TOTAL_TARGETS; i++) {
+              if (!checkpoints[i].done) { next = i; break; }
+            }
+            if (next === -1) { showFinish(); }
+            else {
+              currentTarget = next;
+              updateGrid(); updateProgress(); updateDirectionHint();
+              showToast(`✅ Photo ${capturedCount} saved`, 'success', 1500);
+            }
+          } else {
+            showToast('❌ ' + data.message, 'error');
+          }
+        } catch (err) {
+          showToast('⚠️ Upload failed: ' + err.message, 'error');
+        } finally {
+          setTimeout(() => { isCapturing = false; cancelHold(); }, 600);
+        }
+      }, 'image/jpeg', 0.85);
+    }
+
+    function triggerFlash() {
+      flashEl.classList.add('on');
+      setTimeout(() => flashEl.classList.remove('on'), 150);
+    }
+
+    btnCapture.addEventListener('click', () => captureFrame());
+
+    // ════════════════════════════════════════════════════════════════════════════
+    // DIRECTION HINT
+    // ════════════════════════════════════════════════════════════════════════════
+
+    const YAW_LABELS = {
+      0: 'straight ahead', 30: 'rotate right 30°', 60: 'rotate right 60°',
+      90: 'to the right', 120: 'rotate right 120°', 150: 'rotate right 150°',
+      180: 'turn behind you', 210: 'rotate left 150°', 240: 'rotate left 120°',
+      270: 'to the left', 300: 'rotate left 60°', 330: 'rotate left 30°',
+    };
+    const PITCH_LABELS = { '-30': 'tilt down', '0': 'level', '30': 'tilt up' };
+
+    function updateDirectionHint() {
+      if (currentTarget >= TOTAL_TARGETS) return;
+      const cp   = checkpoints[currentTarget];
+      const yLbl = YAW_LABELS[cp.yaw]        || `yaw ${cp.yaw}°`;
+      const pLbl = PITCH_LABELS[String(cp.pitch)] || `pitch ${cp.pitch}°`;
+      const rowNum = Math.floor(currentTarget / 12) + 1;
+      dirHint.textContent = `Row ${rowNum}: ${pLbl} — ${yLbl}`;
+    }
+
+    // ════════════════════════════════════════════════════════════════════════════
+    // STITCH
+    // ════════════════════════════════════════════════════════════════════════════
+
+    async function doStitch(btn) {
+      btn.classList.add('loading');
+      btn.disabled = true;
+      try {
+        const res  = await api(`/api/stitch/${SESSION_ID}`, { method: 'POST' });
+        const data = await res.json();
+        if (data.success) {
+          showToast('✅ Panorama stitched!', 'success');
+          setTimeout(() => { 
+            sessionStorage.setItem('active_session', SESSION_ID);
+            location.href = `detail.html?session=${SESSION_ID}`; 
+          }, 1200);
+        } else {
+          showToast('❌ ' + data.message, 'error');
+          btn.classList.remove('loading');
+          btn.disabled = false;
+        }
+      } catch (err) {
+        showToast('⚠️ ' + err.message, 'error');
+        btn.classList.remove('loading');
+        btn.disabled = false;
+      }
+    }
+
+    btnStitch.addEventListener('click', () => doStitch(btnStitch));
+
+    // ════════════════════════════════════════════════════════════════════════════
+    // FINISH SCREEN
+    // ════════════════════════════════════════════════════════════════════════════
+
+    function showFinish() {
+      updateProgress();
+      finishMsg.textContent = `You've captured all ${TOTAL_TARGETS} photos. Ready to stitch your 360° panorama!`;
+      finishScreen.style.display = 'flex';
+    }
+
+    btnFinishStitch.addEventListener('click', () => doStitch(btnFinishStitch));
+    btnFinishMore.addEventListener('click', () => {
+      finishScreen.style.display = 'none';
+      checkpoints = buildCheckpoints();
+      currentTarget = 0;
+      buildGrid(); updateProgress(); updateDirectionHint();
+      showToast('📷 Keep capturing more photos!', 'info');
+    });
+
+    // ════════════════════════════════════════════════════════════════════════════
+    // IMPORT EXISTING PANORAMA
+    // ════════════════════════════════════════════════════════════════════════════
+
+    btnImport.addEventListener('click', () => importInput.click());
+
+    importInput.addEventListener('change', async () => {
+      const file = importInput.files[0];
+      if (!file) return;
+      showToast('⏳ Validating image…', 'info');
+      const formData = new FormData();
+      formData.append('image', file, file.name);
+      try {
+        const res  = await api(`/api/import/${SESSION_ID}`, { method: 'POST', body: formData });
+        const data = await res.json();
+        if (data.success) {
+          showToast(`✅ Imported! (${data.dimensions}) — Loading viewer…`, 'success');
+          setTimeout(() => { 
+            sessionStorage.setItem('active_session', SESSION_ID);
+            location.href = `detail.html?session=${SESSION_ID}`; 
+          }, 1500);
+        } else {
+          showToast('❌ ' + data.message, 'error');
+        }
+      } catch (err) {
+        showToast('⚠️ Import failed: ' + err.message, 'error');
+      }
+      importInput.value = '';
+    });
+
+    // ════════════════════════════════════════════════════════════════════════════
+    // TOAST
+    // ════════════════════════════════════════════════════════════════════════════
+
+    let toastTimer;
+    function showToast(msg, type = '', duration = 3000) {
+      toastEl.textContent = msg;
+      toastEl.className = 'show ' + type;
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => { toastEl.className = ''; }, duration);
+    }
+
+    // ════════════════════════════════════════════════════════════════════════════
+    // INIT
+    // ════════════════════════════════════════════════════════════════════════════
+
+    buildGrid();
+    updateProgress();
+    updateDirectionHint();
+
+    // Load session info (sets capturedCount and initialises checkpoints)
+    loadSession();
+
+    setTimeout(() => {
+      if (!gyroActive) gyroNotice.style.display = 'block';
+    }, 2000);
+  </script>
+</body>
+
+</html>

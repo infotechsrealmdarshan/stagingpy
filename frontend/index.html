@@ -1,0 +1,783 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>360° Panorama Studio</title>
+  <meta name="description" content="Capture, stitch and explore immersive 360° panoramas." />
+
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap"
+    rel="stylesheet" />
+
+  <style>
+    /* ── Reset & Tokens ───────────────────────────────────────────── */
+    *,
+    *::before,
+    *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    :root {
+      --bg: #07090f;
+      --surface: #0f1219;
+      --card: #13161f;
+      --glass: rgba(255, 255, 255, 0.04);
+      --border: rgba(255, 255, 255, 0.07);
+      --accent: #6c63ff;
+      --accent2: #00d4ff;
+      --green: #22c55e;
+      --red: #ef4444;
+      --text: #e8eaf0;
+      --muted: #6b7280;
+      --ease: cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    html,
+    body {
+      min-height: 100%;
+      font-family: 'Inter', system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+    }
+
+    /* ── Header ───────────────────────────────────────────────────── */
+    header {
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 14px 32px;
+      background: rgba(7, 9, 15, 0.85);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border-bottom: 1px solid var(--border);
+    }
+
+    .logo {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      text-decoration: none;
+    }
+
+    .logo-icon {
+      width: 40px;
+      height: 40px;
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      border-radius: 11px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 20px;
+      box-shadow: 0 0 20px rgba(108, 99, 255, 0.45);
+      animation: glow 3s ease-in-out infinite;
+      flex-shrink: 0;
+    }
+
+    @keyframes glow {
+
+      0%,
+      100% {
+        box-shadow: 0 0 20px rgba(108, 99, 255, 0.45);
+      }
+
+      50% {
+        box-shadow: 0 0 35px rgba(0, 212, 255, 0.55);
+      }
+    }
+
+    .logo-text h1 {
+      font-size: 16px;
+      font-weight: 700;
+      background: linear-gradient(90deg, var(--accent), var(--accent2));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .logo-text span {
+      font-size: 11px;
+      color: var(--muted);
+      display: block;
+    }
+
+    /* ── Main Layout ──────────────────────────────────────────────── */
+    main {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 40px 24px 80px;
+    }
+
+    /* ── Hero ─────────────────────────────────────────────────────── */
+    .hero {
+      text-align: center;
+      padding: 56px 0 48px;
+    }
+
+    .hero-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      background: rgba(108, 99, 255, 0.12);
+      border: 1px solid rgba(108, 99, 255, 0.3);
+      border-radius: 100px;
+      padding: 5px 14px;
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--accent);
+      margin-bottom: 22px;
+    }
+
+    .hero h2 {
+      font-size: clamp(28px, 5vw, 46px);
+      font-weight: 800;
+      line-height: 1.15;
+      background: linear-gradient(135deg, var(--text) 30%, var(--accent2));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      margin-bottom: 14px;
+    }
+
+    .hero p {
+      font-size: 15px;
+      color: var(--muted);
+      max-width: 480px;
+      margin: 0 auto 36px;
+      line-height: 1.7;
+    }
+
+    /* ── Action Buttons ───────────────────────────────────────────── */
+    .action-row {
+      display: flex;
+      gap: 14px;
+      justify-content: center;
+      flex-wrap: wrap;
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 9px;
+      padding: 13px 26px;
+      border-radius: 12px;
+      font-size: 14px;
+      font-weight: 600;
+      font-family: inherit;
+      cursor: pointer;
+      border: none;
+      transition: transform 0.25s var(--ease), box-shadow 0.25s var(--ease), background 0.25s;
+      text-decoration: none;
+    }
+
+    .btn-icon {
+      font-size: 18px;
+    }
+
+    .btn-camera {
+      background: linear-gradient(135deg, var(--accent) 0%, #5a52e0 100%);
+      color: #fff;
+      box-shadow: 0 6px 22px rgba(108, 99, 255, 0.4);
+    }
+
+    .btn-camera:hover {
+      transform: translateY(-3px);
+      box-shadow: 0 12px 32px rgba(108, 99, 255, 0.55);
+    }
+
+    .btn-gallery {
+      background: rgba(255, 255, 255, 0.08);
+      color: #fff;
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      backdrop-filter: blur(10px);
+    }
+
+    .btn-gallery:hover {
+      background: rgba(255, 255, 255, 0.15);
+      border-color: rgba(255, 255, 255, 0.3);
+      transform: translateY(-3px);
+    }
+
+    /* ── Section Header ───────────────────────────────────────────── */
+    .section-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 20px;
+    }
+
+    .section-title {
+      font-size: 18px;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      gap: 9px;
+    }
+
+    .section-title .dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+    }
+
+    .count-pill {
+      background: var(--glass);
+      border: 1px solid var(--border);
+      border-radius: 100px;
+      padding: 3px 11px;
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    /* ── Panorama List Grid ───────────────────────────────────────── */
+    .pano-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      gap: 20px;
+    }
+
+    /* ── Panorama Card ────────────────────────────────────────────── */
+    .pano-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      overflow: hidden;
+      text-decoration: none;
+      color: inherit;
+      transition: transform 0.28s var(--ease), box-shadow 0.28s var(--ease), border-color 0.28s;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .pano-card:hover {
+      transform: translateY(-5px);
+      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5);
+      border-color: rgba(108, 99, 255, 0.35);
+    }
+
+    .card-thumbnail {
+      position: relative;
+      height: 170px;
+      background: linear-gradient(135deg, #12151f, #1a1d2a);
+      overflow: hidden;
+    }
+
+    .card-thumbnail img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      transition: transform 0.5s var(--ease), opacity 0.3s;
+    }
+
+    .pano-card:hover .card-thumbnail img {
+      transform: scale(1.06);
+    }
+
+    .thumb-overlay {
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(to bottom, transparent 55%, rgba(0, 0, 0, 0.6));
+    }
+
+    .thumb-badge {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      background: rgba(0, 0, 0, 0.55);
+      backdrop-filter: blur(8px);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: 8px;
+      padding: 4px 9px;
+      font-size: 11px;
+      color: var(--accent2);
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+
+    .thumb-placeholder {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      font-size: 40px;
+      color: rgba(255, 255, 255, 0.08);
+    }
+
+    .thumb-placeholder span {
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    .card-body {
+      padding: 18px 18px 16px;
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .card-name {
+      font-size: 15px;
+      font-weight: 600;
+    }
+
+    .card-meta {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    .card-meta-item {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+
+    .card-actions {
+      display: flex;
+      gap: 8px;
+      margin-top: auto;
+      padding-top: 14px;
+      border-top: 1px solid var(--border);
+    }
+
+    .card-btn {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      padding: 8px;
+      border-radius: 9px;
+      font-size: 12px;
+      font-weight: 500;
+      font-family: inherit;
+      cursor: pointer;
+      border: none;
+      transition: background 0.2s, transform 0.2s;
+      text-decoration: none;
+    }
+
+    .card-btn-view {
+      background: linear-gradient(135deg, var(--accent), #5a52e0);
+      color: #fff;
+    }
+
+    .card-btn-view:hover {
+      transform: translateY(-1px);
+      opacity: 0.9;
+    }
+
+    /* ── Empty State ──────────────────────────────────────────────── */
+    .empty-state {
+      text-align: center;
+      padding: 70px 24px;
+      border: 1px dashed var(--border);
+      border-radius: 20px;
+      background: var(--card);
+    }
+
+    .empty-icon {
+      font-size: 54px;
+      margin-bottom: 18px;
+      animation: float 4s ease-in-out infinite;
+    }
+
+    @keyframes float {
+
+      0%,
+      100% {
+        transform: translateY(0)
+      }
+
+      50% {
+        transform: translateY(-10px)
+      }
+    }
+
+    .empty-state h3 {
+      font-size: 20px;
+      font-weight: 700;
+      margin-bottom: 10px;
+    }
+
+    .empty-state p {
+      font-size: 14px;
+      color: var(--muted);
+      max-width: 340px;
+      margin: 0 auto 28px;
+      line-height: 1.7;
+    }
+
+    /* ── Stats Row ────────────────────────────────────────────────── */
+    .stats-row {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      gap: 14px;
+      margin-bottom: 40px;
+    }
+
+    .stat-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 18px 20px;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+
+    .stat-icon {
+      width: 42px;
+      height: 42px;
+      border-radius: 11px;
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 20px;
+    }
+
+    .stat-icon.purple { background: rgba(108, 99, 255, 0.15); }
+    .stat-icon.green  { background: rgba(34, 197, 94, 0.12); }
+
+    .stat-info { min-width: 0; }
+
+    .stat-value {
+      font-size: 22px;
+      font-weight: 700;
+      line-height: 1;
+    }
+
+    .stat-label {
+      font-size: 12px;
+      color: var(--muted);
+      margin-top: 3px;
+    }
+
+    /* ── Skeleton loader ──────────────────────────────────────────── */
+    .skeleton {
+      background: linear-gradient(90deg, var(--card) 25%, #1c2030 50%, var(--card) 75%);
+      background-size: 200% 100%;
+      animation: shimmer 1.4s infinite;
+      border-radius: 8px;
+    }
+
+    @keyframes shimmer {
+      0%   { background-position: 200% 0; }
+      100% { background-position: -200% 0; }
+    }
+
+    /* ── Footer ───────────────────────────────────────────────────── */
+    footer {
+      text-align: center;
+      padding: 24px;
+      border-top: 1px solid var(--border);
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    /* ── Responsive ───────────────────────────────────────────────── */
+    @media (max-width: 600px) {
+      header { padding: 12px 18px; }
+      main   { padding: 24px 16px 60px; }
+      .hero  { padding: 36px 0 32px; }
+      .stats-row { grid-template-columns: 1fr 1fr; }
+    }
+  </style>
+</head>
+
+<body>
+
+  <!-- ── Header ──────────────────────────────────────────────────── -->
+  <header>
+    <a class="logo" href="index.html">
+      <div class="logo-icon">🌐</div>
+      <div class="logo-text">
+        <h1>360° Studio</h1>
+        <span>Panorama Stitcher</span>
+      </div>
+    </a>
+    <div style="display:flex;gap:10px;align-items:center">
+      <button class="btn btn-gallery" onclick="document.getElementById('gallery-upload-input').click()">
+        <span class="btn-icon">🖼️</span> Gallery
+      </button>
+      <button class="btn btn-camera" id="btn-header-new" onclick="newSession()">
+        <span class="btn-icon">📸</span> New Capture
+      </button>
+    </div>
+  </header>
+
+  <!-- ── Main ────────────────────────────────────────────────────── -->
+  <main>
+
+    <!-- Hero -->
+    <section class="hero">
+      <div class="hero-badge">✨ Immersive 360° Experience</div>
+      <h2>Your Panorama Studio</h2>
+      <p>Capture multiple overlapping photos, stitch them into a seamless 360° panorama, and explore them in an
+        immersive viewer.</p>
+      <div class="action-row">
+        <button class="btn btn-camera" id="btn-hero-camera" onclick="newSession()">
+          <span class="btn-icon">📸</span> Start Capturing
+        </button>
+        <button class="btn btn-gallery" id="btn-hero-gallery" onclick="document.getElementById('gallery-upload-input').click()">
+          <span class="btn-icon">🖼️</span> Upload from Gallery
+        </button>
+      </div>
+    </section>
+
+    <!-- Stats -->
+    <div class="stats-row">
+      <div class="stat-card">
+        <div class="stat-icon purple">🗂️</div>
+        <div class="stat-info">
+          <div class="stat-value" id="stat-sessions">—</div>
+          <div class="stat-label">Sessions</div>
+        </div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon green">✅</div>
+        <div class="stat-info">
+          <div class="stat-value" id="stat-stitched">—</div>
+          <div class="stat-label">Stitched</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Panorama List -->
+    <section>
+      <div class="section-header">
+        <div class="section-title">
+          <div class="dot"></div>
+          Recent Panoramas
+        </div>
+        <span class="count-pill" id="total-count">Loading…</span>
+      </div>
+
+      <div id="pano-grid" class="pano-grid"></div>
+      <div id="empty-state" class="empty-state" style="display:none">
+        <div class="empty-icon">🌐</div>
+        <h3>No Panoramas Yet</h3>
+        <p>Start by opening the camera to capture overlapping photos. Then stitch them into your first 360° panorama.</p>
+        <div class="action-row">
+          <button class="btn btn-camera" id="btn-empty-camera" onclick="newSession()">
+            <span class="btn-icon">📸</span> Start Capturing
+          </button>
+          <button class="btn btn-gallery" onclick="document.getElementById('gallery-upload-input').click()">
+            <span class="btn-icon">🖼️</span> Upload Gallery
+          </button>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <input type="file" multiple accept="image/*" id="gallery-upload-input" style="display: none;" onchange="handleGalleryUpload(event)">
+
+  <!-- Upload Progress Modal -->
+  <div id="upload-modal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.85); backdrop-filter: blur(5px); z-index:9999; justify-content:center; align-items:center;">
+      <div style="background:var(--card); padding:35px; border-radius:18px; border: 1px solid var(--border); text-align:center; max-width:400px; width:90%; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);">
+          <div class="logo-icon" style="margin:0 auto 24px; animation: glow 1.5s ease-in-out infinite alternate; font-size: 24px;">⏳</div>
+          <h3 style="margin-bottom:12px; font-size:20px; font-weight:700;" id="upload-modal-title">Processing Images</h3>
+          <p id="upload-modal-desc" style="color:var(--muted); font-size:14px; margin-bottom:24px; line-height:1.5;">Uploading your gallery images...</p>
+          <div style="width:100%; height:8px; background:var(--glass); border-radius:10px; overflow:hidden;">
+              <div id="upload-progress-bar" style="width:0%; height:100%; background:linear-gradient(90deg, var(--accent), var(--accent2)); transition:width 0.3s ease;"></div>
+          </div>
+      </div>
+  </div>
+
+  <footer>
+    360° Panorama Studio &nbsp;·&nbsp; Powered by Flask &amp; OpenCV
+  </footer>
+
+  <script src="config.js"></script>
+  <script>
+    // ── Helpers ────────────────────────────────────────────────────
+    function api(path, opts) {
+      return fetch(API_BASE + path, opts);
+    }
+
+    // ── Render sessions list ────────────────────────────────────────
+    function renderSessions(sessions) {
+      const grid = document.getElementById('pano-grid');
+      const empty = document.getElementById('empty-state');
+
+      if (!sessions.length) {
+        grid.style.display = 'none';
+        empty.style.display = '';
+        return;
+      }
+      empty.style.display = 'none';
+      grid.style.display = '';
+      grid.innerHTML = sessions.map((s, i) => `
+        <div class="pano-card">
+          <div class="card-thumbnail">
+            ${s.panorama_url
+              ? `<img src="${API_BASE}${s.panorama_url}" alt="${s.name} panorama" loading="lazy" />
+                 <div class="thumb-overlay"></div>
+                 <div class="thumb-badge">🔭 360°</div>`
+              : `<div class="thumb-placeholder">🏔️<span>Not stitched yet</span></div>`
+            }
+          </div>
+          <div class="card-body">
+            <div class="card-name">${s.name}</div>
+            <div class="card-meta">
+              <div class="card-meta-item">📷 <span>${s.capture_count} captures</span></div>
+              <div class="card-meta-item">
+                ${s.panorama_url ? '✅ <span>Stitched</span>' : '⏳ <span>Pending</span>'}
+              </div>
+            </div>
+            <div class="card-actions">
+              ${s.panorama_url
+                ? `<button class="card-btn card-btn-view" onclick="goToSession('${s.id}', 'detail.html')" id="btn-view-${i}">🔭 View 360°</button>`
+                : ''
+              }
+              <button class="card-btn"
+                style="background:rgba(239,68,68,0.12);border:1px solid rgba(239,68,68,0.25);color:#ef4444;max-width:38px;padding:8px"
+                onclick="deleteSession('${s.id}', this)" title="Delete session">🗑️</button>
+            </div>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    // ── Load data ───────────────────────────────────────────────────
+    async function loadSessions() {
+      try {
+        const res  = await api('/api/sessions');
+        const data = await res.json();
+
+        document.getElementById('stat-sessions').textContent = data.sessions.length;
+        document.getElementById('stat-stitched').textContent = data.stitched_count;
+        document.getElementById('total-count').textContent   = `${data.sessions.length} total`;
+
+        renderSessions(data.sessions);
+      } catch (e) {
+        document.getElementById('total-count').textContent = 'Error loading';
+        document.getElementById('pano-grid').innerHTML =
+          `<p style="color:var(--muted);text-align:center;padding:40px">Could not connect to backend: ${e.message}</p>`;
+      }
+    }
+
+    // ── Navigation with sessionStorage to avoid lost query params ──
+    function goToSession(id, target) {
+      sessionStorage.setItem('active_session', id);
+      window.location.href = `${target}?session=${id}`;
+    }
+
+    // ── New session ─────────────────────────────────────────────────
+    function newSession() {
+      sessionStorage.removeItem('active_session'); // Clear old session just in case
+      window.location.href = 'camera.html';
+    }
+
+    // ── Delete session ──────────────────────────────────────────────
+    async function deleteSession(id, btn) {
+      if (!confirm('Delete this session and all its captures?')) return;
+      btn.disabled = true;
+      try {
+        const res  = await api(`/api/session/${id}/delete`, { method: 'POST' });
+        const data = await res.json();
+        if (data.success) loadSessions();
+        else alert('Delete failed: ' + data.message);
+      } catch (e) { alert('Error: ' + e.message); btn.disabled = false; }
+    }
+
+    // ── Handle Gallery Upload ───────────────────────────────────────
+    async function handleGalleryUpload(event) {
+      const files = event.target.files;
+      if (!files.length) return;
+      if (files.length < 2) {
+        alert("Please select at least 2 images to stitch a panorama.");
+        event.target.value = '';
+        return;
+      }
+
+      const modal = document.getElementById('upload-modal');
+      const title = document.getElementById('upload-modal-title');
+      const desc = document.getElementById('upload-modal-desc');
+      const bar = document.getElementById('upload-progress-bar');
+      
+      modal.style.display = 'flex';
+      title.textContent = 'Uploading Images';
+      bar.style.width = '0%';
+      document.body.style.overflow = 'hidden';
+
+      try {
+        desc.textContent = 'Creating session...';
+        const res = await api('/api/session/new', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name: `Gallery Panorama` })
+        });
+        const data = await res.json();
+        if (!data.success) throw new Error("Failed to create session");
+        const sid = data.session_id;
+
+        for (let i = 0; i < files.length; i++) {
+          desc.textContent = `Uploading image ${i + 1} of ${files.length}...`;
+          const formData = new FormData();
+          formData.append('image', files[i]);
+          
+          const upRes = await api(`/api/upload/${sid}`, {
+            method: 'POST',
+            body: formData
+          });
+          const upData = await upRes.json();
+          if (!upData.success) {
+            console.error("Upload failed for file", files[i].name);
+          }
+          bar.style.width = `${((i + 1) / files.length) * 50}%`; // Up to 50% for uploads
+        }
+
+        title.textContent = 'Stitching Panorama';
+        desc.textContent = 'Analyzing and stitching images. This may take a minute...';
+        bar.style.width = '75%';
+        
+        const stitchRes = await api(`/api/stitch/${sid}`, { method: 'POST' });
+        const stitchData = await stitchRes.json();
+        
+        bar.style.width = '100%';
+        
+        if (stitchData.success) {
+          desc.textContent = 'Success! Redirecting...';
+          setTimeout(() => {
+            goToSession(sid, 'detail.html');
+          }, 500);
+        } else {
+          throw new Error("Stitching failed: " + stitchData.message);
+        }
+
+      } catch (e) {
+        alert("Error: " + e.message);
+        modal.style.display = 'none';
+        document.body.style.overflow = '';
+        loadSessions();
+      } finally {
+        event.target.value = '';
+      }
+    }
+
+    // ── Init ────────────────────────────────────────────────────────
+    loadSessions();
+  </script>
+
+</body>
+
+</html>

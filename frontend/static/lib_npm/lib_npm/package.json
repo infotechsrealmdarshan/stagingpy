@@ -1,0 +1,7 @@
+{
+  "dependencies": {
+    "@photo-sphere-viewer/core": "^5.14.1",
+    "photo-sphere-viewer": "^4.8.1",
+    "three": "^0.183.2"
+  }
+}
