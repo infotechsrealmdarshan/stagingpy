@@ -8,4 +8,4 @@
  *   const API_BASE = 'http://localhost:5000';       // local backend
  *   const API_BASE = 'https://api.your-domain.com'; // production
  */
-const API_BASE = 'https://stagingpy.vercel.app/';
+const API_BASE = 'https://stagingpy.vercel.app';
