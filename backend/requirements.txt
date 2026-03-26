@@ -1,0 +1,15 @@
+# 360° Panorama Stitcher — Python dependencies
+# Install with: pip install -r requirements.txt
+
+# Web framework
+Flask==3.1.2
+
+# CORS support — required for decoupled frontend/backend
+flask-cors==4.0.1
+
+# Computer Vision — panorama stitching
+# opencv-python-headless is required for serverless platforms (Vercel, Railway, etc.)
+opencv-python-headless==4.11.0.86
+
+# Numerical arrays — used for image validation in import endpoint
+numpy==1.26.4
