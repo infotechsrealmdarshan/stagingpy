@@ -198,11 +198,12 @@ def api_stitch_status(session_id: str):
     if request.method == 'OPTIONS':
         return '', 200
 
-    sessions = _load_sessions()
-    if session_id not in sessions:
-        return jsonify({"success": False, "message": "Session not found"}), 404
-
     _, captures_dir, results_dir = _session_dirs(session_id)
+
+    # Accept sessions auto-created during upload even if not in sessions.json
+    sessions = _load_sessions()
+    if session_id not in sessions and not os.path.exists(captures_dir):
+        return jsonify({"success": False, "message": "Session not found"}), 404
 
     with _stitch_lock:
         status = _stitch_status.get(session_id)
@@ -219,7 +220,7 @@ def api_stitch_status(session_id: str):
 
     # Build panorama URLs if done
     panorama_urls = []
-    if status == "done":
+    if status == "done" and os.path.exists(results_dir):
         for fname in sorted(os.listdir(results_dir)):
             if fname.endswith('.jpg'):
                 panorama_urls.append(
