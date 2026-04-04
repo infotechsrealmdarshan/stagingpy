@@ -1,392 +1,400 @@
 import cv2
 import numpy as np
 import os
-import re
-from typing import List, Tuple, Optional
+import traceback
+from typing import List, Optional, Tuple
 
 
-class RobustStitcher:
-    def __init__(self, min_matches: int = 8, ratio: float = 0.72, reproj: float = 3.5):
-        self.min_matches = min_matches
-        self.ratio_test = ratio
-        self.reproj_thresh = reproj
-        # SIFT for robust but potentially repetitive points
-        self.sift = cv2.SIFT_create(nfeatures=12000, contrastThreshold=0.015)
-        self.matcher = cv2.BFMatcher()
+# ─────────────────────────────────────────────────────────────────────────────
+# STRATEGY 1 ─ OpenCV built-in Stitcher (best quality, handles lens distortion)
+# ─────────────────────────────────────────────────────────────────────────────
+def _try_opencv_stitcher(images: List[np.ndarray]) -> Optional[np.ndarray]:
+    """Use OpenCV's own panorama Stitcher pipeline."""
+    try:
+        print("[stitch] Trying OpenCV Stitcher …")
+        stitcher = cv2.Stitcher.create(cv2.Stitcher_PANORAMA)
+        stitcher.setRegistrationResol(0.6)
+        stitcher.setSeamEstimationResol(0.1)
+        stitcher.setCompositingResol(cv2.Stitcher_ORIG_RESOL)
+        stitcher.setPanoConfidenceThresh(0.5)
 
-    def get_features(self, image: np.ndarray):
-        gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-        # Use stronger CLAHE for better dark-area details
+        status, result = stitcher.stitch(images)
+        if status == cv2.Stitcher_OK and result is not None:
+            print("[stitch] OpenCV Stitcher succeeded ✓")
+            return result
+        else:
+            codes = {
+                cv2.Stitcher_ERR_NEED_MORE_IMGS: "need more images",
+                cv2.Stitcher_ERR_HOMOGRAPHY_EST_FAIL: "homography failed",
+                cv2.Stitcher_ERR_CAMERA_PARAMS_ADJUST_FAIL: "camera params failed",
+            }
+            reason = codes.get(status, f"status={status}")
+            print(f"[stitch] OpenCV Stitcher failed: {reason}")
+            return None
+    except Exception as e:
+        print(f"[stitch] OpenCV Stitcher exception: {e}")
+        return None
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# STRATEGY 2 ─ Homography-based stitching (SIFT + RANSAC)
+# ─────────────────────────────────────────────────────────────────────────────
+def _find_homography(img_a: np.ndarray, img_b: np.ndarray) -> Optional[np.ndarray]:
+    """Find homography from img_b to img_a coordinate space."""
+    try:
+        sift = cv2.SIFT_create(nfeatures=8000, contrastThreshold=0.02)
+        
+        gray_a = cv2.cvtColor(img_a, cv2.COLOR_BGR2GRAY)
+        gray_b = cv2.cvtColor(img_b, cv2.COLOR_BGR2GRAY)
+        
+        # CLAHE to improve contrast in dark areas
         clahe = cv2.createCLAHE(clipLimit=3.0, tileGridSize=(8, 8))
-        gray = clahe.apply(gray)
-        kp, des = self.sift.detectAndCompute(gray, None)
-        return kp, des
+        gray_a = clahe.apply(gray_a)
+        gray_b = clahe.apply(gray_b)
+        
+        kp_a, des_a = sift.detectAndCompute(gray_a, None)
+        kp_b, des_b = sift.detectAndCompute(gray_b, None)
+        
+        if des_a is None or des_b is None or len(des_a) < 8 or len(des_b) < 8:
+            return None
+        
+        bf = cv2.BFMatcher()
+        raw = bf.knnMatch(des_a, des_b, k=2)
+        
+        good = [m for m, n in raw if m.distance < 0.75 * n.distance]
+        if len(good) < 8:
+            return None
+        
+        src_pts = np.float32([kp_a[m.queryIdx].pt for m in good]).reshape(-1, 1, 2)
+        dst_pts = np.float32([kp_b[m.trainIdx].pt for m in good]).reshape(-1, 1, 2)
+        
+        H, mask = cv2.findHomography(dst_pts, src_pts, cv2.RANSAC, 5.0)
+        
+        inliers = int(mask.sum()) if mask is not None else 0
+        print(f"    [H] {len(good)} matches → {inliers} inliers")
+        if inliers < 8:
+            return None
+        return H
+    except Exception as e:
+        print(f"    [H] Exception: {e}")
+        return None
 
-    def match_features(self, des1, des2):
-        if des1 is None or des2 is None or len(des1) < self.min_matches or len(des2) < self.min_matches:
-            return []
-        raw_matches = self.matcher.knnMatch(des1, des2, k=2)
-        matches = [m for m, n in raw_matches if m.distance < self.ratio_test * n.distance]
-        return matches
 
-    def verify_translation(self, img_l: np.ndarray, img_r: np.ndarray, dx: int, dy: int) -> float:
-        """Verify a translation hypothesis using template matching on a strip."""
-        try:
-            h_l, w_l = img_l.shape[:2]
-            h_r, w_r = img_r.shape[:2]
-            
-            # The overlap region in img_l is [dx, w_l]
-            # The overlap region in img_r is [0, w_l - dx]
-            ov_w = w_l - dx
-            if ov_w < 20 or ov_w > w_r: return 0.0
-            
-            # Pad images for dy
-            h_common = min(h_l, h_r)
-            strip_l = img_l[h_common//4:h_common*3//4, dx:dx+ov_w]
-            strip_r = img_r[h_common//4:h_common*3//4, :ov_w]
-            
-            # Shift strip_r by dy
-            if abs(dy) > h_common//8: return 0.0
-            
-            # Match gray versions
-            g_l = cv2.cvtColor(strip_l, cv2.COLOR_BGR2GRAY)
-            g_r = cv2.cvtColor(strip_r, cv2.COLOR_BGR2GRAY)
-            
-            if dy != 0:
-                # Vertical shift for verification
-                M = np.float32([[1, 0, 0], [0, 1, -dy]])
-                g_r = cv2.warpAffine(g_r, M, (g_r.shape[1], g_r.shape[0]))
-            
-            res = cv2.matchTemplate(g_l, g_r, cv2.TM_CCOEFF_NORMED)
-            _, max_val, _, _ = cv2.minMaxLoc(res)
-            return max_val
-        except:
-            return 0.0
+def _warp_and_blend(base: np.ndarray, next_img: np.ndarray, H: np.ndarray) -> np.ndarray:
+    """Warp next_img onto base using homography with multiband blending."""
+    h_b, w_b = base.shape[:2]
+    h_n, w_n = next_img.shape[:2]
+    
+    # Compute destination canvas size
+    corners_n = np.float32([[0, 0], [w_n, 0], [w_n, h_n], [0, h_n]]).reshape(-1, 1, 2)
+    warped_corners = cv2.perspectiveTransform(corners_n, H)
+    all_corners = np.concatenate([
+        [[0, 0], [w_b, 0], [w_b, h_b], [0, h_b]],
+        warped_corners.reshape(-1, 2)
+    ])
+    
+    x_min, y_min = np.floor(all_corners.min(axis=0)).astype(int)
+    x_max, y_max = np.ceil(all_corners.max(axis=0)).astype(int)
+    
+    x_min = min(x_min, 0)
+    y_min = min(y_min, 0)
+    
+    out_w = x_max - x_min
+    out_h = y_max - y_min
+    
+    if out_w > 40000 or out_h > 15000:
+        # Sanity guard — homography went haywire
+        return base
+    
+    T = np.array([[1, 0, -x_min], [0, 1, -y_min], [0, 0, 1]], dtype=np.float64)
+    H_shifted = T @ H
+    
+    warped = cv2.warpPerspective(next_img, H_shifted, (out_w, out_h),
+                                  flags=cv2.INTER_LINEAR,
+                                  borderMode=cv2.BORDER_CONSTANT,
+                                  borderValue=(0, 0, 0))
+    
+    canvas = np.zeros((out_h, out_w, 3), dtype=np.uint8)
+    canvas[-y_min:h_b + (-y_min), -x_min:w_b + (-x_min)] = base
+    
+    # Mask-based blending in overlap zone
+    mask_b = np.zeros((out_h, out_w), dtype=np.uint8)
+    mask_b[-y_min:h_b + (-y_min), -x_min:w_b + (-x_min)] = 255
+    
+    mask_n = np.zeros((out_h, out_w), dtype=np.uint8)
+    warped_gray = cv2.cvtColor(warped, cv2.COLOR_BGR2GRAY)
+    mask_n[warped_gray > 0] = 255
+    
+    overlap = cv2.bitwise_and(mask_b, mask_n)
+    only_n  = cv2.bitwise_and(mask_n, cv2.bitwise_not(mask_b))
+    
+    # Fill non-overlap area with warped image
+    canvas[only_n > 0] = warped[only_n > 0]
+    
+    # Blend overlap zone with linear gradient
+    overlap_coords = np.where(overlap > 0)
+    if len(overlap_coords[0]) > 0:
+        xs = overlap_coords[1]
+        x_ov_min, x_ov_max = xs.min(), xs.max()
+        ov_w = max(x_ov_max - x_ov_min, 1)
+        
+        alpha_map = np.zeros((out_h, out_w, 1), dtype=np.float32)
+        for r, c in zip(overlap_coords[0], overlap_coords[1]):
+            alpha_map[r, c, 0] = (c - x_ov_min) / ov_w  # left=base, right=warped
+        
+        b_f = canvas.astype(np.float32)
+        w_f = warped.astype(np.float32)
+        ov_mask = (overlap[:, :, np.newaxis] / 255.0).astype(np.float32)
+        
+        blended = b_f * (1.0 - alpha_map) + w_f * alpha_map
+        canvas = (b_f * (1.0 - ov_mask) + blended * ov_mask).clip(0, 255).astype(np.uint8)
+    
+    return canvas
 
-    def find_translation(self, img_l: np.ndarray, img_r: np.ndarray, expected_ov_pct: float = 0.35) -> Tuple[Optional[int], Optional[int], float]:
-        """Robuster translation finding with geometric constraints and template validation."""
+
+def _try_homography_stitcher(images: List[np.ndarray]) -> Optional[np.ndarray]:
+    """Sequential homography-based stitching."""
+    print("[stitch] Trying Homography stitcher …")
+    try:
+        # Normalize brightness first
+        images = _normalize_brightness(images)
+        
+        base = images[0].copy()
+        failed = 0
+        
+        for i in range(1, len(images)):
+            H = _find_homography(base, images[i])
+            if H is None:
+                print(f"    [H] Pair {i}: no homography, using translation fallback")
+                dx, dy = _phase_corr_offset(base, images[i])
+                # Construct a pure translation matrix
+                H = np.array([[1, 0, float(dx)],
+                               [0, 1, float(dy)],
+                               [0, 0, 1.0]], dtype=np.float64)
+                failed += 1
+            
+            print(f"    [H] Stitching pair {i}/{len(images)-1}")
+            base = _warp_and_blend(base, images[i], H)
+        
+        if failed == len(images) - 1:
+            print("[stitch] All pairs used translation only — low confidence")
+            return None  # Let translation stitcher handle this
+        
+        print("[stitch] Homography stitcher succeeded ✓")
+        return base
+    except Exception as e:
+        print(f"[stitch] Homography stitcher exception: {e}")
+        traceback.print_exc()
+        return None
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# STRATEGY 3 ─ Simple translation mosaic (always works, less accurate warp)
+# ─────────────────────────────────────────────────────────────────────────────
+def _phase_corr_offset(img_l: np.ndarray, img_r: np.ndarray) -> Tuple[int, int]:
+    """Estimate horizontal translation via phase correlation on overlap strips."""
+    try:
         h_l, w_l = img_l.shape[:2]
         h_r, w_r = img_r.shape[:2]
         
-        # Scan a slightly larger area than expected
-        scan_w = int(w_r * 0.90)
-        strip_l = img_l[:, -scan_w:]
-        strip_r = img_r[:, :scan_w]
+        scan = int(min(w_l, w_r) * 0.6)
+        strip_l = cv2.cvtColor(img_l[:, -scan:], cv2.COLOR_BGR2GRAY).astype(np.float32)
+        strip_r = cv2.cvtColor(img_r[:, :scan],  cv2.COLOR_BGR2GRAY).astype(np.float32)
         
-        kp_l, des_l = self.get_features(strip_l)
-        kp_r, des_r = self.get_features(strip_r)
+        # Match heights
+        h_min = min(strip_l.shape[0], strip_r.shape[0])
+        strip_l = strip_l[:h_min, :]
+        strip_r = strip_r[:h_min, :]
         
-        matches = self.match_features(des_l, des_r)
-        if len(matches) < 4:
-            return self.fallback_phase_corr(img_l, img_r, expected_ov_pct)
-            
-        dxs = [ (kp_l[m.queryIdx].pt[0] + (w_l - scan_w)) - kp_r[m.trainIdx].pt[0] for m in matches ]
-        dys = [ kp_l[m.queryIdx].pt[1] - kp_r[m.trainIdx].pt[1] for m in matches ]
+        (dx_p, dy_p), resp = cv2.phaseCorrelate(strip_l, strip_r)
         
-        # Tighter constraints for sequential photos
-        # Overlap is typically 15% to 55%
-        min_dx = w_l - int(w_r * 0.70)
-        max_dx = w_l - int(w_r * 0.08)
-        
-        candidates = []
-        for d_x, d_y in zip(dxs, dys):
-            if min_dx <= d_x <= max_dx:
-                candidates.append((d_x, d_y))
-        
-        if not candidates:
-            return self.fallback_phase_corr(img_l, img_r, expected_ov_pct)
-            
-        # Group candidates into DX clusters
-        best_dx, best_dy, best_score = None, None, -1.0
-        
-        # Simple clustering around common DX values
-        for d_x, d_y in candidates:
-            # Check this hypothesis with template alignment
-            score = self.verify_translation(img_l, img_r, int(d_x), int(d_y))
-            if score > best_score:
-                best_score = score
-                best_dx = int(d_x)
-                best_dy = int(d_y)
-                
-        if best_score > 0.45:
-            return best_dx, best_dy, best_score
-            
-        return self.fallback_phase_corr(img_l, img_r, expected_ov_pct)
+        # Convert strip-relative dx to canvas dx
+        dx_canvas = w_l - scan + int(dx_p)
+        dx_canvas = int(np.clip(dx_canvas, w_l - int(w_r * 0.85), w_l - int(w_r * 0.05)))
+        return dx_canvas, int(dy_p)
+    except:
+        return int(img_l.shape[1] * 0.65), 0
 
-    def fallback_phase_corr(self, img_l, img_r, expected_ov_pct) -> Tuple[Optional[int], Optional[int], float]:
-        try:
-            h_l, w_l = img_l.shape[:2]
-            h_r, w_r = img_r.shape[:2]
-            ov_search = int(w_r * 0.6)
-            sl_gray = cv2.cvtColor(img_l[:, -ov_search:], cv2.COLOR_BGR2GRAY).astype(np.float32)
-            sr_gray = cv2.cvtColor(img_r[:, :ov_search], cv2.COLOR_BGR2GRAY).astype(np.float32)
-            (dx_p, dy_p), resp = cv2.phaseCorrelate(sl_gray, sr_gray)
-            if resp > 0.05:
-                calc_dx = w_l - ov_search + dx_p
-                # Validate the fallback too
-                score = self.verify_translation(img_l, img_r, int(calc_dx), int(dy_p))
-                if score > 0.35:
-                    return int(calc_dx), int(dy_p), score
-        except: pass
-        return None, None, 0.0
 
-    @staticmethod
-    def global_brightness_normalise(images: List[np.ndarray]) -> List[np.ndarray]:
-        """Normalize brightness and balance color temperature (tint) in LAB space."""
-        if not images: return images
-        
-        stats = []
-        for img in images:
-            # Use a slightly downsampled version for speed in stats calculation
-            small = cv2.resize(img, (0, 0), fx=0.5, fy=0.5)
-            lab = cv2.cvtColor(small, cv2.COLOR_BGR2LAB)
-            L, a, b = cv2.split(lab)
-            stats.append({
-                'L_avg': np.mean(L),
-                'a_avg': np.mean(a),
-                'b_avg': np.mean(b)
-            })
-            
-        # Target based on medians to avoid outliers (e.g. bright lamps or dark corners)
-        target_L = float(np.median([s['L_avg'] for s in stats]))
-        target_a = float(np.median([s['a_avg'] for s in stats]))
-        target_b = float(np.median([s['b_avg'] for s in stats]))
-        
-        res = []
-        for img, s in zip(images, stats):
-            # Process in float32 for precision
-            lab = cv2.cvtColor(img, cv2.COLOR_BGR2LAB).astype(np.float32)
-            L, a, b = cv2.split(lab)
-            
-            # Exposure correction (L channel)
-            gain = target_L / (s['L_avg'] + 1e-6)
-            gain = np.clip(gain, 0.65, 1.5)
-            L *= gain
-            
-            # Color balancing (neutralizing a/b shift towards global median)
-            # This matches color temperature and tint
-            a += (target_a - s['a_avg'])
-            b += (target_b - s['b_avg'])
-            
-            # Clip and convert back
-            lab = cv2.merge([L, a, b])
-            lab = np.clip(lab, 0, 255).astype(np.uint8)
-            res.append(cv2.cvtColor(lab, cv2.COLOR_LAB2BGR))
-        return res
-
-    def manual_mosaic_fallback(self, images: List[np.ndarray], overlap_pct: float = 0.35, close_loop: bool = True) -> np.ndarray:
-        if not images: return None
-        # Pre-process global color/brightness
-        images = self.global_brightness_normalise(images)
+def _translation_mosaic(images: List[np.ndarray]) -> Optional[np.ndarray]:
+    """Simple left-to-right translation stitching — always produces output."""
+    print("[stitch] Using translation mosaic (fallback) …")
+    try:
+        images = _normalize_brightness(images)
         
         pano = images[0].copy()
-        first_ref = images[0].copy()
         
         for i in range(1, len(images)):
             img = images[i].copy()
-            print(f"[seam {i}/{len(images)-1}]")
+            dx, dy = _phase_corr_offset(pano, img)
             
-            # Find geometric alignment
-            dx, dy, score = self.find_translation(pano, img, expected_ov_pct=overlap_pct)
+            h_p, w_p = pano.shape[:2]
+            h_i, w_i = img.shape[:2]
             
-            if dx is not None and score > 0.30:
-                ov = pano.shape[1] - dx
-                print(f"    [align] Match score={score:.2f}, overlap={ov}px, dy={dy}")
-            else:
-                ov = int(img.shape[1] * overlap_pct)
-                dy = 0
-                print(f"    [align] Low confidence, using fixed overlap {ov}px")
+            # Vertical padding for dy
+            pad_top_p = max(0, -dy)
+            pad_top_i = max(0,  dy)
+            pad_bot_p = max(0,  dy)
+            pad_bot_i = max(0, -dy)
             
-            # 1. Match local exposure and color of incoming 'img' to 'pano' based on overlap
-            # This ensures that even if global normalization wasn't perfect, the transition is seamless.
-            if ov > 20:
-                h_p, w_p = pano.shape[:2]
-                roi_p = pano[:, w_p-ov:w_p]
-                roi_i = img[:, :ov]
-                
-                # Match means across channels for seamless transition
-                for c in range(3):
-                    m_p = np.mean(roi_p[:, :, c])
-                    m_i = np.mean(roi_i[:, :, c])
-                    if m_i > 5:
-                        l_gain = m_p / (m_i + 1e-6)
-                        # Slightly more restrictive gain to prevent runaway brightness
-                        l_gain = np.clip(l_gain, 0.8, 1.25)
-                        img[:, :, c] = cv2.convertScaleAbs(img[:, :, c], alpha=l_gain, beta=0)
-
-            # 2. Handle canvas expansion and vertical shift
-            pad_tp = max(0, -dy); pad_bp = max(0, dy)
-            pad_ti = max(0, dy); pad_bi = max(0, -dy)
-            pano = cv2.copyMakeBorder(pano, pad_tp, pad_bp, 0, 0, cv2.BORDER_CONSTANT, value=0)
-            img = cv2.copyMakeBorder(img, pad_ti, pad_bi, 0, 0, cv2.BORDER_CONSTANT, value=0)
+            pano = cv2.copyMakeBorder(pano, pad_top_p, pad_bot_p, 0, 0, cv2.BORDER_CONSTANT)
+            img  = cv2.copyMakeBorder(img,  pad_top_i, pad_bot_i, 0, 0, cv2.BORDER_CONSTANT)
             
             h_p, w_p = pano.shape[:2]
             h_i, w_i = img.shape[:2]
             h_c = min(h_p, h_i)
             pano = pano[:h_c, :]
-            img = img[:h_c, :]
+            img  = img[:h_c, :]
             
-            # 3. Create new canvas and blend
-            new_w = w_p + img.shape[1] - ov
+            ov = w_p - dx
+            ov = max(10, min(ov, w_i - 10))
+            new_w = w_p + w_i - ov
+            
             res = np.zeros((h_c, new_w, 3), dtype=np.uint8)
             res[:, :w_p] = pano
             
+            # Sigmoid blend in overlap zone
             if ov > 10:
-                roi_l = pano[:, w_p-ov:]
-                roi_r = img[:, :ov]
-                
-                # Smoother Sigmoid for transition
                 t = np.linspace(0, 1, ov)
-                ramp = 1.0 / (1.0 + np.exp(-14 * (t - 0.5)))
+                ramp = 1.0 / (1.0 + np.exp(-12 * (t - 0.5)))
                 alpha = np.tile(ramp, (h_c, 1))[:, :, np.newaxis].astype(np.float32)
                 
-                blended_ov = self.multiband_blend_robust(roi_l, roi_r, alpha, levels=6)
-                res[:, w_p-ov:w_p] = blended_ov
+                roi_l = pano[:, w_p-ov:w_p].astype(np.float32)
+                roi_r = img[:, :ov].astype(np.float32)
+                blended = (roi_l * (1 - alpha) + roi_r * alpha).clip(0, 255).astype(np.uint8)
+                res[:, w_p-ov:w_p] = blended
                 res[:, w_p:] = img[:, ov:]
             else:
                 res[:, w_p:] = img
             
             pano = res
-
-        if close_loop and len(images) >= 4:
-            pano = self.close_loop_seam_robust(pano, first_ref)
-            
-        # Post-process for soft, diffused, HDR-balanced lighting
-        pano = self.post_process_hdr_lighting(pano)
+            print(f"    [trans] Stitched {i}/{len(images)-1}: dx={dx}, dy={dy}, ov={ov}px")
+        
+        print("[stitch] Translation mosaic succeeded ✓")
         return pano
+    except Exception as e:
+        print(f"[stitch] Translation mosaic exception: {e}")
+        traceback.print_exc()
+        return None
 
-    def post_process_hdr_lighting(self, image: np.ndarray) -> np.ndarray:
-        """Apply HDR-like balancing and soft diffusion."""
-        print("[*] Balancing HDR lighting and softening shadows...")
-        # 1. Shadow/Highlight recovery using LAB CLAHE
-        lab = cv2.cvtColor(image, cv2.COLOR_BGR2LAB)
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Shared helpers
+# ─────────────────────────────────────────────────────────────────────────────
+def _normalize_brightness(images: List[np.ndarray]) -> List[np.ndarray]:
+    """Equalize brightness and color temperature across all images."""
+    if not images:
+        return images
+    
+    labs = []
+    for img in images:
+        small = cv2.resize(img, (0, 0), fx=0.25, fy=0.25)
+        lab = cv2.cvtColor(small, cv2.COLOR_BGR2LAB)
         L, a, b = cv2.split(lab)
-        
-        # Soft CLAHE to lift shadows and tame sunlight streaks
-        clahe = cv2.createCLAHE(clipLimit=1.6, tileGridSize=(12, 12))
-        L = clahe.apply(L)
-        
-        # 2. Global tone mapping simulation for photorealistic look
-        # Linear to log-like mapping
-        L_f = L.astype(np.float32) / 255.0
-        L_f = cv2.pow(L_f, 0.85) # Gamma adjust to lift midtones
-        L = (L_f * 255.0).astype(np.uint8)
-        
-        image = cv2.cvtColor(cv2.merge([L, a, b]), cv2.COLOR_LAB2BGR)
-        
-        # 3. Soft diffusion (Bilateral Filter) to match "soft indoor lighting"
-        # D=5 is small enough to keep textures, but smooth noise/banding
-        image = cv2.bilateralFilter(image, 5, 20, 20)
-        
+        labs.append({'L': float(np.mean(L)), 'a': float(np.mean(a)), 'b': float(np.mean(b))})
+    
+    tL = float(np.median([s['L'] for s in labs]))
+    ta = float(np.median([s['a'] for s in labs]))
+    tb = float(np.median([s['b'] for s in labs]))
+    
+    result = []
+    for img, s in zip(images, labs):
+        lab = cv2.cvtColor(img, cv2.COLOR_BGR2LAB).astype(np.float32)
+        L, a, b = cv2.split(lab)
+        gain = np.clip(tL / (s['L'] + 1e-6), 0.65, 1.5)
+        L = np.clip(L * gain, 0, 255)
+        a = np.clip(a + (ta - s['a']), 0, 255)
+        b = np.clip(b + (tb - s['b']), 0, 255)
+        lab = cv2.merge([L, a, b]).clip(0, 255).astype(np.uint8)
+        result.append(cv2.cvtColor(lab, cv2.COLOR_LAB2BGR))
+    return result
+
+
+def _trim_borders(image: np.ndarray) -> np.ndarray:
+    """Crop black/empty borders. Never returns None."""
+    if image is None:
+        return image
+    try:
+        gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+        mask = (gray > 8).astype(np.uint8)
+        coords = cv2.findNonZero(mask)
+        if coords is None:
+            return image
+        x, y, w, h = cv2.boundingRect(coords)
+        # Add a 2px safety margin
+        x = max(0, x - 2); y = max(0, y - 2)
+        w = min(image.shape[1] - x, w + 4)
+        h = min(image.shape[0] - y, h + 4)
+        return image[y:y+h, x:x+w]
+    except:
         return image
 
-    def multiband_blend_robust(self, img_l: np.ndarray, img_r: np.ndarray, alpha: np.ndarray, levels: int = 6) -> np.ndarray:
-        l_f = img_l.astype(np.float32)
-        r_f = img_r.astype(np.float32)
-        a_f = alpha.astype(np.float32)
-        
-        def build_gauss(img, n):
-            gp = [img]
-            for _ in range(n):
-                if gp[-1].shape[0] < 2 or gp[-1].shape[1] < 2: break
-                gp.append(cv2.pyrDown(gp[-1]))
-            return gp
-            
-        def build_lap(gp):
-            lp = []
-            for i in range(len(gp)-1):
-                up = cv2.pyrUp(gp[i+1], dstsize=(gp[i].shape[1], gp[i].shape[0]))
-                lp.append(gp[i] - up)
-            lp.append(gp[-1])
-            return lp
-            
-        gL = build_gauss(l_f, levels); gR = build_gauss(r_f, levels); gA = build_gauss(a_f, levels)
-        lL = build_lap(gL); lR = build_lap(gR)
-        
-        blended = []
-        for l, r, a in zip(lL, lR, gA):
-            if a.ndim == 2: a = a[:, :, np.newaxis]
-            if a.shape[:2] != l.shape[:2]:
-                a = cv2.resize(a, (l.shape[1], l.shape[0]))
-            blended.append(l * (1.0 - a) + r * a)
-            
-        res = blended[-1]
-        for layer in reversed(blended[:-1]):
-            res = cv2.pyrUp(res, dstsize=(layer.shape[1], layer.shape[0])) + layer
-            
-        return np.clip(res, 0, 255).astype(np.uint8)
 
-    def close_loop_seam_robust(self, pano: np.ndarray, first_img: np.ndarray) -> np.ndarray:
-        print("[*] Final 360-loop closure...")
-        h, w = pano.shape[:2]
-        # Look for first image in the last 45% of panorama
-        search_w = int(w * 0.45)
-        tail = pano[:, -search_w:]
-        
-        dx, dy, score = self.find_translation(tail, first_img)
-        
-        if dx is not None and score > 0.40 and dx < search_w * 0.96:
-            match_x = (w - search_w) + dx
-            print(f"  [loop] Closure found at x={match_x} (score={score:.2f})")
-            pano = pano[:, :match_x]
-            
-            # Smoothly distribute dy drift across the whole pano
-            if abs(dy) > 1:
-                rows, cols = pano.shape[:2]
-                src = np.float32([[0,0], [cols-1,0], [0,rows-1]])
-                dst = np.float32([[0,0], [cols-1, -dy], [0,rows-1]])
-                M = cv2.getAffineTransform(src, dst)
-                pano = cv2.warpAffine(pano, M, (cols, rows), borderMode=cv2.BORDER_CONSTANT, borderValue=0)
-        else:
-            print("  [loop] No strong 360-match found at the end.")
-        return pano
-
-    def trim_black_borders(self, image: np.ndarray) -> np.ndarray:
-        if image is None: return None
-        gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-        mask = (gray > 12).astype(np.uint8)
-        coords = cv2.findNonZero(mask)
-        if coords is None: return image
-        x, y, w, h = cv2.boundingRect(coords)
-        
-        res = image[y:y+h, x:x+w]
-        h_r, w_r = res.shape[:2]
-        gray_r = cv2.cvtColor(res, cv2.COLOR_BGR2GRAY)
-        top, bot = 0, h_r
-        # Require 85% content for a row to be valid
-        row_content = np.count_nonzero(gray_r > 12, axis=1) / w_r
-        for r in range(h_r // 3):
-            if row_content[r] > 0.85:
-                top = r; break
-        for r in range(h_r - 1, h_r // 3 * 2, -1):
-            if row_content[r] > 0.85:
-                bot = r + 1; break
-        return res[top:bot]
+def _post_process(image: np.ndarray) -> np.ndarray:
+    """Gentle HDR-like post processing."""
+    try:
+        lab = cv2.cvtColor(image, cv2.COLOR_BGR2LAB)
+        L, a, b = cv2.split(lab)
+        clahe = cv2.createCLAHE(clipLimit=1.5, tileGridSize=(12, 12))
+        L = clahe.apply(L)
+        L_f = L.astype(np.float32) / 255.0
+        L_f = np.power(L_f, 0.88)
+        L = (L_f * 255).clip(0, 255).astype(np.uint8)
+        image = cv2.cvtColor(cv2.merge([L, a, b]), cv2.COLOR_LAB2BGR)
+        return image
+    except:
+        return image
 
 
+# ─────────────────────────────────────────────────────────────────────────────
+# Public entry point
+# ─────────────────────────────────────────────────────────────────────────────
 def stitch_images_robustly(image_paths: List[str], results_dir: str) -> List[str]:
-    print(f"[*] Loading {len(image_paths)} images...")
+    print(f"[stitch] Loading {len(image_paths)} images …")
+    
     images = []
     for p in image_paths:
         img = cv2.imread(p)
-        if img is not None:
-            # High 1400px height for capturing mall details but saving RAM
-            if img.shape[0] > 1400:
-                scale = 1400 / img.shape[0]
-                img = cv2.resize(img, None, fx=scale, fy=scale, interpolation=cv2.INTER_LANCZOS4)
-            images.append(img)
-            
-    if len(images) < 2: return []
-    print(f"[*] Processing {len(images)} images")
+        if img is None:
+            print(f"  [!] Could not read: {p}")
+            continue
+        # Resize so largest dimension ≤ 1400px  (speed + memory)
+        h, w = img.shape[:2]
+        max_dim = max(h, w)
+        if max_dim > 1400:
+            scale = 1400 / max_dim
+            img = cv2.resize(img, None, fx=scale, fy=scale, interpolation=cv2.INTER_LANCZOS4)
+        images.append(img)
     
-    stitcher = RobustStitcher()
-    print(f"[*] Sequential stitching starting from {len(images)} images")
-    result = stitcher.manual_mosaic_fallback(images, close_loop=True)
-    result = stitcher.trim_black_borders(result)
+    if len(images) < 2:
+        print("[stitch] Not enough valid images — need at least 2")
+        return []
     
-    if result is not None:
-        out_path = os.path.join(results_dir, "panorama.jpg")
-        cv2.imwrite(out_path, result, [cv2.IMWRITE_JPEG_QUALITY, 93])
-        print(f"[*] Stitching done: 1 panorama(s) saved.")
-        return [out_path]
-    return []
+    print(f"[stitch] Processing {len(images)} images …")
+    
+    result = None
+    
+    # ── Strategy 1: OpenCV built-in
+    result = _try_opencv_stitcher(images)
+    
+    # ── Strategy 2: Homography-based
+    if result is None:
+        result = _try_homography_stitcher(images)
+    
+    # ── Strategy 3: Translation mosaic (guaranteed output)
+    if result is None:
+        result = _translation_mosaic(images)
+    
+    if result is None:
+        print("[stitch] All strategies failed.")
+        return []
+    
+    # Post-process and trim
+    result = _post_process(result)
+    result = _trim_borders(result)
+    
+    os.makedirs(results_dir, exist_ok=True)
+    out_path = os.path.join(results_dir, "panorama.jpg")
+    cv2.imwrite(out_path, result, [cv2.IMWRITE_JPEG_QUALITY, 92])
+    print(f"[stitch] Saved panorama → {out_path}  ({result.shape[1]}×{result.shape[0]}px)")
+    return [out_path]
