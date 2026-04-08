@@ -198,6 +198,12 @@
       height: 100%;
     }
 
+    @keyframes progressSlide {
+      0%   { transform: translateX(-100%); }
+      50%  { transform: translateX(200%); }
+      100% { transform: translateX(200%); }
+    }
+
     .empty-state {
       position: absolute;
       inset: 0;
@@ -447,6 +453,16 @@
         <a id="btn-go-capture" href="index.html" class="btn btn-primary" style="text-decoration:none;margin-top:8px">📷
           Go to Camera</a>
       </div>
+
+      <!-- Stitching progress state -->
+      <div class="empty-state" id="stitching-state" style="display:none">
+        <div style="font-size:56px;animation:float 2s ease-in-out infinite">⚙️</div>
+        <h2>Stitching Panorama…</h2>
+        <p id="stitch-progress-msg">Processing your images. This may take a minute.</p>
+        <div style="width:200px;height:4px;background:rgba(255,255,255,0.1);border-radius:4px;overflow:hidden;margin-top:8px">
+          <div id="progress-bar" style="height:100%;width:30%;background:linear-gradient(90deg,#6c63ff,#00d4ff);border-radius:4px;animation:progressSlide 1.4s ease-in-out infinite"></div>
+        </div>
+      </div>
     </div>
 
     <!-- ── Footer ────────────────────────────────────────────────── -->
@@ -458,7 +474,7 @@
 
       <div class="img-count" id="img-count" style="display:none">
         <span>📷</span>
-        <span><strong id="img-count-num">0</strong> captures</span>
+        <span><strong id="img-count-num">0</strong> / 10 captures</span>
       </div>
 
       <div class="tips">
@@ -495,7 +511,8 @@
     }
 
     // config.js must be loaded before this module; access via window
-    function api(path, opts) {
+    function api(path, opts = {}) {
+      opts.headers = { ...opts.headers, 'Bypass-Tunnel-Reminder': 'true' };
       return fetch(API_BASE + path, opts);
     }
 
@@ -554,6 +571,58 @@
       } catch (_) { /* fail silently */ }
     }
 
+    // ── Poll stitch status until done ────────────────────────────────
+    let pollTimer = null;
+    let pollCount = 0;
+
+    function stopPolling() {
+      if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
+    }
+
+    async function pollStatus() {
+      if (!SESSION_ID) return;
+      try {
+        const res = await api(`/api/stitch-status/${SESSION_ID}`);
+        if (!res.ok) {
+          // Session not found on backend yet — keep waiting (auto-created sessions may not
+          // be registered in sessions.json until first upload completes)
+          if (res.status === 404) {
+            document.getElementById('stitch-progress-msg').textContent =
+              'Waiting for session to register…';
+            return;
+          }
+          stopPolling();
+          setStatus('Status check failed', 'error');
+          return;
+        }
+        const data = await res.json();
+        pollCount++;
+
+        if (data.status === 'done' && data.panorama_url) {
+          stopPolling();
+          document.getElementById('stitching-state').style.display = 'none';
+          setStatus('Loading panorama…', 'loading');
+          initViewer(API_BASE + data.panorama_url);
+          fetchImageCount();
+        } else if (data.status === 'error') {
+          stopPolling();
+          document.getElementById('stitching-state').style.display = 'none';
+          document.getElementById('empty-state').style.display = 'flex';
+          setStatus('Stitching failed — try again', 'error');
+          showToast('❌ Stitching failed. Add more photos.', 'error');
+        } else {
+          // still running / pending
+          const dots = '.'.repeat((pollCount % 3) + 1);
+          document.getElementById('stitch-progress-msg').textContent =
+            `Processing images${dots} (${pollCount * 2.5 | 0}s elapsed)`;
+          setStatus('Stitching in progress…', 'loading');
+        }
+      } catch (err) {
+        // Network error — keep trying
+        console.warn('Poll error:', err.message);
+      }
+    }
+
     // ── Load session info and init viewer ─────────────────────────────
     async function init() {
       if (!SESSION_ID) {
@@ -569,8 +638,12 @@
         const data = await res.json();
 
         if (!data.success) {
-          setStatus('Session not found', 'error');
-          emptyState.style.display = 'flex';
+          // Session might not be in DB yet (auto-created during capture).
+          // Check stitch-status anyway to see if panorama exists on disk.
+          document.getElementById('stitching-state').style.display = 'flex';
+          setStatus('Session loading…', 'loading');
+          pollTimer = setInterval(pollStatus, 2500);
+          pollStatus();
           return;
         }
 
@@ -587,14 +660,18 @@
         };
 
         if (data.panorama_url) {
+          // Panorama already exists — load directly
           setStatus('Loading panorama…', 'loading');
           initViewer(API_BASE + data.panorama_url);
+          fetchImageCount();
         } else {
-          setStatus('No panorama found', '');
-          emptyState.style.display = 'flex';
+          // No panorama yet — check if stitch is in progress
+          document.getElementById('stitching-state').style.display = 'flex';
+          setStatus('Checking stitch status…', 'loading');
+          // Start polling
+          pollTimer = setInterval(pollStatus, 2500);
+          pollStatus();
         }
-
-        fetchImageCount();
       } catch (e) {
         setStatus('Error: ' + e.message, 'error');
         emptyState.style.display = 'flex';

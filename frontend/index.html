@@ -7,14 +7,12 @@
   <title>360° Panorama Studio</title>
   <meta name="description" content="Capture, stitch and explore immersive 360° panoramas." />
 
-  <!-- Google Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap"
     rel="stylesheet" />
 
   <style>
-    /* ── Reset & Tokens ───────────────────────────────────────────── */
     *,
     *::before,
     *::after {
@@ -46,7 +44,6 @@
       color: var(--text);
     }
 
-    /* ── Header ───────────────────────────────────────────────────── */
     header {
       position: sticky;
       top: 0;
@@ -109,14 +106,12 @@
       display: block;
     }
 
-    /* ── Main Layout ──────────────────────────────────────────────── */
     main {
       max-width: 1100px;
       margin: 0 auto;
       padding: 40px 24px 80px;
     }
 
-    /* ── Hero ─────────────────────────────────────────────────────── */
     .hero {
       text-align: center;
       padding: 56px 0 48px;
@@ -155,7 +150,6 @@
       line-height: 1.7;
     }
 
-    /* ── Action Buttons ───────────────────────────────────────────── */
     .action-row {
       display: flex;
       gap: 14px;
@@ -206,7 +200,6 @@
       transform: translateY(-3px);
     }
 
-    /* ── Section Header ───────────────────────────────────────────── */
     .section-header {
       display: flex;
       align-items: center;
@@ -238,20 +231,17 @@
       color: var(--muted);
     }
 
-    /* ── Panorama List Grid ───────────────────────────────────────── */
     .pano-grid {
       display: grid;
       grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
       gap: 20px;
     }
 
-    /* ── Panorama Card ────────────────────────────────────────────── */
     .pano-card {
       background: var(--card);
       border: 1px solid var(--border);
       border-radius: 16px;
       overflow: hidden;
-      text-decoration: none;
       color: inherit;
       transition: transform 0.28s var(--ease), box-shadow 0.28s var(--ease), border-color 0.28s;
       display: flex;
@@ -275,7 +265,7 @@
       width: 100%;
       height: 100%;
       object-fit: cover;
-      transition: transform 0.5s var(--ease), opacity 0.3s;
+      transition: transform 0.5s var(--ease);
     }
 
     .pano-card:hover .card-thumbnail img {
@@ -319,6 +309,38 @@
     .thumb-placeholder span {
       font-size: 12px;
       color: var(--muted);
+    }
+
+    /* Stitching spinner overlay on card thumbnail */
+    .thumb-stitching {
+      position: absolute;
+      inset: 0;
+      background: rgba(7, 9, 15, 0.82);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+    }
+
+    .thumb-stitching .spin {
+      width: 32px;
+      height: 32px;
+      border: 3px solid rgba(108, 99, 255, 0.3);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+
+    @keyframes spin {
+      to {
+        transform: rotate(360deg);
+      }
+    }
+
+    .thumb-stitching span {
+      font-size: 11px;
+      color: var(--accent2);
     }
 
     .card-body {
@@ -383,7 +405,6 @@
       opacity: 0.9;
     }
 
-    /* ── Empty State ──────────────────────────────────────────────── */
     .empty-state {
       text-align: center;
       padding: 70px 24px;
@@ -402,11 +423,11 @@
 
       0%,
       100% {
-        transform: translateY(0)
+        transform: translateY(0);
       }
 
       50% {
-        transform: translateY(-10px)
+        transform: translateY(-10px);
       }
     }
 
@@ -424,7 +445,6 @@
       line-height: 1.7;
     }
 
-    /* ── Stats Row ────────────────────────────────────────────────── */
     .stats-row {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
@@ -453,10 +473,13 @@
       font-size: 20px;
     }
 
-    .stat-icon.purple { background: rgba(108, 99, 255, 0.15); }
-    .stat-icon.green  { background: rgba(34, 197, 94, 0.12); }
+    .stat-icon.purple {
+      background: rgba(108, 99, 255, 0.15);
+    }
 
-    .stat-info { min-width: 0; }
+    .stat-icon.green {
+      background: rgba(34, 197, 94, 0.12);
+    }
 
     .stat-value {
       font-size: 22px;
@@ -470,20 +493,78 @@
       margin-top: 3px;
     }
 
-    /* ── Skeleton loader ──────────────────────────────────────────── */
-    .skeleton {
-      background: linear-gradient(90deg, var(--card) 25%, #1c2030 50%, var(--card) 75%);
-      background-size: 200% 100%;
-      animation: shimmer 1.4s infinite;
-      border-radius: 8px;
+    /* Modal */
+    #upload-modal {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.85);
+      backdrop-filter: blur(5px);
+      z-index: 9999;
+      justify-content: center;
+      align-items: center;
     }
 
-    @keyframes shimmer {
-      0%   { background-position: 200% 0; }
-      100% { background-position: -200% 0; }
+    .modal-box {
+      background: var(--card);
+      padding: 35px;
+      border-radius: 18px;
+      border: 1px solid var(--border);
+      text-align: center;
+      max-width: 400px;
+      width: 90%;
+      box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
     }
 
-    /* ── Footer ───────────────────────────────────────────────────── */
+    #modal-icon {
+      font-size: 36px;
+      display: block;
+      margin: 0 auto 18px;
+    }
+
+    .modal-title {
+      margin-bottom: 12px;
+      font-size: 20px;
+      font-weight: 700;
+    }
+
+    .modal-desc {
+      color: var(--muted);
+      font-size: 14px;
+      margin-bottom: 24px;
+      line-height: 1.5;
+    }
+
+    .progress-track {
+      width: 100%;
+      height: 8px;
+      background: var(--glass);
+      border-radius: 10px;
+      overflow: hidden;
+    }
+
+    .progress-bar {
+      height: 100%;
+      background: linear-gradient(90deg, var(--accent), var(--accent2));
+      transition: width 0.3s ease;
+      width: 0%;
+    }
+
+    .progress-bar.indeterminate {
+      width: 40% !important;
+      animation: slide 1.4s ease-in-out infinite;
+    }
+
+    @keyframes slide {
+      0% {
+        margin-left: -40%;
+      }
+
+      100% {
+        margin-left: 100%;
+      }
+    }
+
     footer {
       text-align: center;
       padding: 24px;
@@ -492,19 +573,28 @@
       color: var(--muted);
     }
 
-    /* ── Responsive ───────────────────────────────────────────────── */
     @media (max-width: 600px) {
-      header { padding: 12px 18px; }
-      main   { padding: 24px 16px 60px; }
-      .hero  { padding: 36px 0 32px; }
-      .stats-row { grid-template-columns: 1fr 1fr; }
+      header {
+        padding: 12px 18px;
+      }
+
+      main {
+        padding: 24px 16px 60px;
+      }
+
+      .hero {
+        padding: 36px 0 32px;
+      }
+
+      .stats-row {
+        grid-template-columns: 1fr 1fr;
+      }
     }
   </style>
 </head>
 
 <body>
 
-  <!-- ── Header ──────────────────────────────────────────────────── -->
   <header>
     <a class="logo" href="index.html">
       <div class="logo-icon">🌐</div>
@@ -517,103 +607,115 @@
       <button class="btn btn-gallery" onclick="document.getElementById('gallery-upload-input').click()">
         <span class="btn-icon">🖼️</span> Gallery
       </button>
-      <button class="btn btn-camera" id="btn-header-new" onclick="newSession()">
+      <button class="btn btn-camera" onclick="newSession()">
         <span class="btn-icon">📸</span> New Capture
       </button>
     </div>
   </header>
 
-  <!-- ── Main ────────────────────────────────────────────────────── -->
   <main>
-
-    <!-- Hero -->
     <section class="hero">
       <div class="hero-badge">✨ Immersive 360° Experience</div>
       <h2>Your Panorama Studio</h2>
       <p>Capture multiple overlapping photos, stitch them into a seamless 360° panorama, and explore them in an
         immersive viewer.</p>
       <div class="action-row">
-        <button class="btn btn-camera" id="btn-hero-camera" onclick="newSession()">
+        <button class="btn btn-camera" onclick="newSession()">
           <span class="btn-icon">📸</span> Start Capturing
         </button>
-        <button class="btn btn-gallery" id="btn-hero-gallery" onclick="document.getElementById('gallery-upload-input').click()">
+        <button class="btn btn-gallery" onclick="document.getElementById('gallery-upload-input').click()">
           <span class="btn-icon">🖼️</span> Upload from Gallery
         </button>
       </div>
     </section>
 
-    <!-- Stats -->
     <div class="stats-row">
       <div class="stat-card">
         <div class="stat-icon purple">🗂️</div>
-        <div class="stat-info">
+        <div>
           <div class="stat-value" id="stat-sessions">—</div>
           <div class="stat-label">Sessions</div>
         </div>
       </div>
       <div class="stat-card">
         <div class="stat-icon green">✅</div>
-        <div class="stat-info">
+        <div>
           <div class="stat-value" id="stat-stitched">—</div>
           <div class="stat-label">Stitched</div>
         </div>
       </div>
     </div>
 
-    <!-- Panorama List -->
     <section>
       <div class="section-header">
         <div class="section-title">
-          <div class="dot"></div>
-          Recent Panoramas
+          <div class="dot"></div> Recent Panoramas
         </div>
         <span class="count-pill" id="total-count">Loading…</span>
       </div>
-
       <div id="pano-grid" class="pano-grid"></div>
       <div id="empty-state" class="empty-state" style="display:none">
         <div class="empty-icon">🌐</div>
         <h3>No Panoramas Yet</h3>
-        <p>Start by opening the camera to capture overlapping photos. Then stitch them into your first 360° panorama.</p>
+        <p>Start by opening the camera to capture overlapping photos, then stitch them into your first 360° panorama.
+        </p>
         <div class="action-row">
-          <button class="btn btn-camera" id="btn-empty-camera" onclick="newSession()">
-            <span class="btn-icon">📸</span> Start Capturing
-          </button>
-          <button class="btn btn-gallery" onclick="document.getElementById('gallery-upload-input').click()">
-            <span class="btn-icon">🖼️</span> Upload Gallery
-          </button>
+          <button class="btn btn-camera" onclick="newSession()"><span class="btn-icon">📸</span> Start
+            Capturing</button>
+          <button class="btn btn-gallery" onclick="document.getElementById('gallery-upload-input').click()"><span
+              class="btn-icon">🖼️</span> Upload Gallery</button>
         </div>
       </div>
     </section>
-
   </main>
 
-  <input type="file" multiple accept="image/*" id="gallery-upload-input" style="display: none;" onchange="handleGalleryUpload(event)">
+  <input type="file" multiple accept="image/*" id="gallery-upload-input" style="display:none"
+    onchange="handleGalleryUpload(event)">
 
-  <!-- Upload Progress Modal -->
-  <div id="upload-modal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.85); backdrop-filter: blur(5px); z-index:9999; justify-content:center; align-items:center;">
-      <div style="background:var(--card); padding:35px; border-radius:18px; border: 1px solid var(--border); text-align:center; max-width:400px; width:90%; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);">
-          <div class="logo-icon" style="margin:0 auto 24px; animation: glow 1.5s ease-in-out infinite alternate; font-size: 24px;">⏳</div>
-          <h3 style="margin-bottom:12px; font-size:20px; font-weight:700;" id="upload-modal-title">Processing Images</h3>
-          <p id="upload-modal-desc" style="color:var(--muted); font-size:14px; margin-bottom:24px; line-height:1.5;">Uploading your gallery images...</p>
-          <div style="width:100%; height:8px; background:var(--glass); border-radius:10px; overflow:hidden;">
-              <div id="upload-progress-bar" style="width:0%; height:100%; background:linear-gradient(90deg, var(--accent), var(--accent2)); transition:width 0.3s ease;"></div>
-          </div>
+  <!-- Modal -->
+  <div id="upload-modal">
+    <div class="modal-box">
+      <span id="modal-icon">⏳</span>
+      <div class="modal-title" id="modal-title">Processing</div>
+      <div class="modal-desc" id="modal-desc">Please wait…</div>
+      <div class="progress-track">
+        <div class="progress-bar" id="modal-bar"></div>
       </div>
+    </div>
   </div>
 
-  <footer>
-    360° Panorama Studio &nbsp;·&nbsp; Powered by Flask &amp; OpenCV
-  </footer>
+  <footer>360° Panorama Studio &nbsp;·&nbsp; Powered by Flask &amp; OpenCV</footer>
 
   <script src="config.js"></script>
   <script>
-    // ── Helpers ────────────────────────────────────────────────────
-    function api(path, opts) {
+    // ── API helper ─────────────────────────────────────────────────
+    function api(path, opts = {}) {
+      opts.headers = { ...opts.headers, 'Bypass-Tunnel-Reminder': 'true' };
       return fetch(API_BASE + path, opts);
     }
 
-    // ── Render sessions list ────────────────────────────────────────
+    // Active card pollers: { session_id: intervalId }
+    const _pollers = {};
+
+    // ── Modal helpers ──────────────────────────────────────────────
+    function showModal(icon, title, desc, pct, indeterminate = false) {
+      document.getElementById('modal-icon').textContent = icon;
+      document.getElementById('modal-title').textContent = title;
+      document.getElementById('modal-desc').textContent = desc;
+      const bar = document.getElementById('modal-bar');
+      bar.classList.toggle('indeterminate', indeterminate);
+      if (!indeterminate) bar.style.width = pct + '%';
+      document.getElementById('upload-modal').style.display = 'flex';
+      document.body.style.overflow = 'hidden';
+    }
+
+    function hideModal() {
+      document.getElementById('upload-modal').style.display = 'none';
+      document.body.style.overflow = '';
+      document.getElementById('modal-bar').classList.remove('indeterminate');
+    }
+
+    // ── Render sessions ────────────────────────────────────────────
     function renderSessions(sessions) {
       const grid = document.getElementById('pano-grid');
       const empty = document.getElementById('empty-state');
@@ -625,47 +727,86 @@
       }
       empty.style.display = 'none';
       grid.style.display = '';
-      grid.innerHTML = sessions.map((s, i) => `
-        <div class="pano-card">
-          <div class="card-thumbnail">
-            ${s.panorama_url
-              ? `<img src="${API_BASE}${s.panorama_url}" alt="${s.name} panorama" loading="lazy" />
-                 <div class="thumb-overlay"></div>
-                 <div class="thumb-badge">🔭 360°</div>`
-              : `<div class="thumb-placeholder">🏔️<span>Not stitched yet</span></div>`
-            }
-          </div>
-          <div class="card-body">
-            <div class="card-name">${s.name}</div>
-            <div class="card-meta">
-              <div class="card-meta-item">📷 <span>${s.capture_count} captures</span></div>
-              <div class="card-meta-item">
-                ${s.panorama_url ? '✅ <span>Stitched</span>' : '⏳ <span>Pending</span>'}
+
+      grid.innerHTML = sessions.map(s => {
+        const isRunning = s.stitch_status === 'running';
+        const isError = s.stitch_status === 'error';
+
+        const thumbHtml = isRunning
+          ? `<div class="thumb-stitching"><div class="spin"></div><span>Stitching…</span></div>`
+          : s.panorama_url
+            ? `<img src="${API_BASE}${s.panorama_url}" alt="${s.name}" loading="lazy"/>
+               <div class="thumb-overlay"></div>
+               <div class="thumb-badge">🔭 360°</div>`
+            : `<div class="thumb-placeholder">🏔️<span>${isError ? '❌ Failed' : 'Not stitched yet'}</span></div>`;
+
+        const statusHtml = isRunning
+          ? '⏳ <span>Stitching…</span>'
+          : s.panorama_url
+            ? '✅ <span>Stitched</span>'
+            : isError
+              ? '❌ <span>Failed</span>'
+              : '⏳ <span>Pending</span>';
+
+        return `
+          <div class="pano-card" id="card-${s.id}">
+            <div class="card-thumbnail">${thumbHtml}</div>
+            <div class="card-body">
+              <div class="card-name">${s.name}</div>
+              <div class="card-meta">
+                <div class="card-meta-item">📷 <span>${s.capture_count} captures</span></div>
+                <div class="card-meta-item" id="status-${s.id}">${statusHtml}</div>
+              </div>
+              ${isError && s.stitch_message
+            ? `<div style="font-size:11px;color:var(--red);margin-top:4px">${s.stitch_message}</div>`
+            : ''}
+              <div class="card-actions">
+                ${s.panorama_url
+            ? `<button class="card-btn card-btn-view" onclick="goToSession('${s.id}','detail.html')">🔭 View 360°</button>`
+            : ''}
+                ${s.capture_count >= 2
+            ? `<button class="card-btn" id="restitch-${s.id}"
+                  style="background:rgba(108,99,255,0.12);border:1px solid rgba(108,99,255,0.25);color:var(--accent);padding:8px"
+                  onclick="restitchSession('${s.id}',this)" title="Re-stitch panorama">🔄 Re-stitch</button>`
+            : ''}
+                <button class="card-btn"
+                  style="background:rgba(239,68,68,0.12);border:1px solid rgba(239,68,68,0.25);color:#ef4444;max-width:38px;padding:8px"
+                  onclick="deleteSession('${s.id}',this)" title="Delete">🗑️</button>
               </div>
             </div>
-            <div class="card-actions">
-              ${s.panorama_url
-                ? `<button class="card-btn card-btn-view" onclick="goToSession('${s.id}', 'detail.html')" id="btn-view-${i}">🔭 View 360°</button>`
-                : ''
-              }
-              <button class="card-btn"
-                style="background:rgba(239,68,68,0.12);border:1px solid rgba(239,68,68,0.25);color:#ef4444;max-width:38px;padding:8px"
-                onclick="deleteSession('${s.id}', this)" title="Delete session">🗑️</button>
-            </div>
-          </div>
-        </div>
-      `).join('');
+          </div>`;
+      }).join('');
+
+      // Start card-level pollers for running sessions
+      sessions.forEach(s => {
+        if (s.stitch_status === 'running' && !_pollers[s.id]) {
+          _pollers[s.id] = setInterval(() => pollCard(s.id), 3000);
+        }
+      });
     }
 
-    // ── Load data ───────────────────────────────────────────────────
+    // Poll a single session's stitch status and update its card
+    async function pollCard(sessionId) {
+      try {
+        const res = await api(`/api/stitch-status/${sessionId}`);
+        const data = await res.json();
+        if (data.status !== 'running') {
+          clearInterval(_pollers[sessionId]);
+          delete _pollers[sessionId];
+          loadSessions(); // refresh all cards
+        }
+      } catch (_) { /* network blip — keep polling */ }
+    }
+
+    // ── Load all sessions ──────────────────────────────────────────
     async function loadSessions() {
       try {
-        const res  = await api('/api/sessions');
+        const res = await api('/api/sessions');
         const data = await res.json();
 
         document.getElementById('stat-sessions').textContent = data.sessions.length;
         document.getElementById('stat-stitched').textContent = data.stitched_count;
-        document.getElementById('total-count').textContent   = `${data.sessions.length} total`;
+        document.getElementById('total-count').textContent = `${data.sessions.length} total`;
 
         renderSessions(data.sessions);
       } catch (e) {
@@ -675,109 +816,145 @@
       }
     }
 
-    // ── Navigation with sessionStorage to avoid lost query params ──
+    // ── Navigation ─────────────────────────────────────────────────
     function goToSession(id, target) {
       sessionStorage.setItem('active_session', id);
       window.location.href = `${target}?session=${id}`;
     }
-
-    // ── New session ─────────────────────────────────────────────────
     function newSession() {
-      sessionStorage.removeItem('active_session'); // Clear old session just in case
+      sessionStorage.removeItem('active_session');
       window.location.href = 'camera.html';
     }
 
-    // ── Delete session ──────────────────────────────────────────────
+    // ── Delete ─────────────────────────────────────────────────────
     async function deleteSession(id, btn) {
       if (!confirm('Delete this session and all its captures?')) return;
       btn.disabled = true;
       try {
-        const res  = await api(`/api/session/${id}/delete`, { method: 'POST' });
+        const res = await api(`/api/session/${id}/delete`, { method: 'POST' });
         const data = await res.json();
-        if (data.success) loadSessions();
-        else alert('Delete failed: ' + data.message);
+        if (data.success) {
+          clearInterval(_pollers[id]);
+          delete _pollers[id];
+          loadSessions();
+        } else {
+          alert('Delete failed: ' + data.message);
+          btn.disabled = false;
+        }
       } catch (e) { alert('Error: ' + e.message); btn.disabled = false; }
     }
 
-    // ── Handle Gallery Upload ───────────────────────────────────────
+    // ── Re-stitch ───────────────────────────────────────────────────
+    async function restitchSession(id, btn) {
+      if (!confirm('Re-stitch this session? This will overwrite the existing panorama.')) return;
+      btn.disabled = true;
+      btn.innerHTML = '⏳ Stitching…';
+      try {
+        const res = await api(`/api/stitch/${id}`, { method: 'POST' });
+        let data;
+        try { data = await res.json(); }
+        catch (_) { throw new Error(`Server error ${res.status}`); }
+        if (!data.success) throw new Error(data.message || 'Failed to start stitcher');
+
+        // Poll until done
+        showModal('🔭', 'Re-stitching Panorama',
+          'Processing images in the background.\nThis can take a few minutes…',
+          0, true);
+
+        await new Promise((resolve, reject) => {
+          const t = setInterval(async () => {
+            try {
+              const r = await api(`/api/stitch-status/${id}`);
+              const d = await r.json();
+              if (d.status === 'running') return;
+              clearInterval(t);
+              if (d.status === 'done') { resolve(); }
+              else reject(new Error(d.message || 'Stitching failed'));
+            } catch (_) { /* network blip */ }
+          }, 3000);
+        });
+
+        hideModal();
+        loadSessions();
+      } catch (e) {
+        hideModal();
+        alert('Re-stitch failed: ' + e.message);
+        btn.disabled = false;
+        btn.innerHTML = '🔄 Re-stitch';
+        loadSessions();
+      }
+    }
+
+    // ── Gallery upload ─────────────────────────────────────────────
     async function handleGalleryUpload(event) {
       const files = event.target.files;
       if (!files.length) return;
       if (files.length < 2) {
-        alert("Please select at least 2 images to stitch a panorama.");
+        alert('Please select at least 2 images.');
         event.target.value = '';
         return;
       }
 
-      const modal = document.getElementById('upload-modal');
-      const title = document.getElementById('upload-modal-title');
-      const desc = document.getElementById('upload-modal-desc');
-      const bar = document.getElementById('upload-progress-bar');
-      
-      modal.style.display = 'flex';
-      title.textContent = 'Uploading Images';
-      bar.style.width = '0%';
-      document.body.style.overflow = 'hidden';
-
       try {
-        desc.textContent = 'Creating session...';
-        const res = await api('/api/session/new', {
+        // 1. Create session
+        showModal('⏳', 'Creating Session', 'Setting up…', 2);
+        const newRes = await api('/api/session/new', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ name: `Gallery Panorama` })
+          body: JSON.stringify({ name: 'Gallery Panorama' }),
         });
-        const data = await res.json();
-        if (!data.success) throw new Error("Failed to create session");
-        const sid = data.session_id;
+        const newData = await newRes.json();
+        if (!newData.success) throw new Error('Failed to create session');
+        const sid = newData.session_id;
 
+        // 2. Upload images
         for (let i = 0; i < files.length; i++) {
-          desc.textContent = `Uploading image ${i + 1} of ${files.length}...`;
-          const formData = new FormData();
-          formData.append('image', files[i]);
-          
-          const upRes = await api(`/api/upload/${sid}`, {
-            method: 'POST',
-            body: formData
-          });
-          const upData = await upRes.json();
-          if (!upData.success) {
-            console.error("Upload failed for file", files[i].name);
-          }
-          bar.style.width = `${((i + 1) / files.length) * 50}%`; // Up to 50% for uploads
+          showModal('📤', 'Uploading Images',
+            `Uploading image ${i + 1} of ${files.length}…`,
+            2 + ((i + 1) / files.length) * 70);
+          const fd = new FormData();
+          fd.append('image', files[i]);
+          await api(`/api/upload/${sid}`, { method: 'POST', body: fd });
         }
 
-        title.textContent = 'Stitching Panorama';
-        desc.textContent = 'Analyzing and stitching images. This may take a minute...';
-        bar.style.width = '75%';
-        
+        // 3. Start async stitch (returns in <1s)
+        showModal('🧵', 'Starting Stitcher', 'Sending to background worker…', 75);
         const stitchRes = await api(`/api/stitch/${sid}`, { method: 'POST' });
-        const stitchData = await stitchRes.json();
-        
-        bar.style.width = '100%';
-        
-        if (stitchData.success) {
-          desc.textContent = 'Success! Redirecting...';
-          setTimeout(() => {
-            goToSession(sid, 'detail.html');
-          }, 500);
-        } else {
-          throw new Error("Stitching failed: " + stitchData.message);
-        }
+        let stitchData;
+        try { stitchData = await stitchRes.json(); }
+        catch (_) { throw new Error(`Server error ${stitchRes.status} — try fewer images.`); }
+        if (!stitchData.success) throw new Error(stitchData.message || 'Failed to start stitcher');
+
+        // 4. Poll modal until done
+        showModal('🔭', 'Stitching Panorama',
+          `Processing ${files.length} images in the background.\nThis can take a few minutes — please wait…`,
+          0, true);
+
+        await new Promise((resolve, reject) => {
+          const t = setInterval(async () => {
+            try {
+              const r = await api(`/api/stitch-status/${sid}`);
+              const d = await r.json();
+              if (d.status === 'running') return;
+              clearInterval(t);
+              if (d.status === 'done') { hideModal(); goToSession(sid, 'detail.html'); resolve(); }
+              else reject(new Error(d.message || 'Stitching failed'));
+            } catch (_) { /* network blip */ }
+          }, 3000);
+        });
 
       } catch (e) {
-        alert("Error: " + e.message);
-        modal.style.display = 'none';
-        document.body.style.overflow = '';
+        hideModal();
+        alert('Error: ' + e.message);
         loadSessions();
       } finally {
         event.target.value = '';
       }
     }
 
-    // ── Init ────────────────────────────────────────────────────────
+    // ── Init ───────────────────────────────────────────────────────
     loadSessions();
   </script>
-
 </body>
 
 </html>

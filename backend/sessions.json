@@ -1,8 +1,372 @@
 {
-  "aa1aa5b74c99": {
+  "sess_mno7zox6nk7v": {
+    "name": "Session 2026-04-07 06:10",
+    "created_at": "2026-04-07T06:10:19.427308",
+    "capture_count": 10,
+    "stitch_count": 1
+  },
+  "c7b0d6c6b5b4": {
     "name": "Gallery Panorama",
-    "created_at": "2026-04-03T12:46:24.948554",
-    "capture_count": 5,
+    "created_at": "2026-04-07T06:15:53.128640",
+    "capture_count": 10,
+    "stitch_count": 1
+  },
+  "4558e56d18f6": {
+    "name": "Gallery Panorama",
+    "created_at": "2026-04-07T06:16:47.509736",
+    "capture_count": 10,
+    "stitch_count": 1
+  },
+  "50d4d468f54b": {
+    "name": "Gallery Panorama",
+    "created_at": "2026-04-07T06:17:05.693675",
+    "capture_count": 10,
+    "stitch_count": 1
+  },
+  "471e9a5ff337": {
+    "name": "Gallery Panorama",
+    "created_at": "2026-04-07T06:18:09.170567",
+    "capture_count": 10,
+    "stitch_count": 1
+  },
+  "200ea303fc8e": {
+    "name": "Gallery Panorama",
+    "created_at": "2026-04-07T06:36:39.117469",
+    "capture_count": 10,
+    "stitch_count": 1
+  },
+  "6737954e1599": {
+    "name": "Gallery Panorama",
+    "created_at": "2026-04-07T06:44:00.248139",
+    "capture_count": 10,
+    "stitch_count": 1
+  },
+  "sess_mno9cafa0tr7": {
+    "name": "Session 2026-04-07 06:48",
+    "created_at": "2026-04-07T06:48:11.443944"
+  },
+  "sess_mno9icf591fv": {
+    "name": "Session 2026-04-07 06:52",
+    "created_at": "2026-04-07T06:52:48.185274",
+    "capture_count": 10,
+    "stitch_count": 1
+  },
+  "sess_mno9j5hefw49": {
+    "name": "Session 2026-04-07 06:53",
+    "created_at": "2026-04-07T06:53:32.946517"
+  },
+  "sess_mno9jnwd5wn9": {
+    "name": "Session 2026-04-07 06:53",
+    "created_at": "2026-04-07T06:53:52.283929",
+    "capture_count": 10,
+    "stitch_count": 1
+  },
+  "sess_mno9qn1xaa2z": {
+    "name": "Session 2026-04-07 06:59",
+    "created_at": "2026-04-07T06:59:16.144176",
+    "capture_count": 10,
+    "stitch_count": 1
+  },
+  "d94290acab9f": {
+    "name": "Gallery Panorama",
+    "created_at": "2026-04-07T07:01:27.911829",
+    "capture_count": 10,
+    "stitch_count": 1
+  },
+  "a4b1523106d9": {
+    "name": "Gallery Panorama",
+    "created_at": "2026-04-07T07:03:05.616991",
+    "capture_count": 10,
+    "stitch_count": 1
+  },
+  "73cd6ef32679": {
+    "name": "Gallery Panorama",
+    "created_at": "2026-04-07T07:03:32.900291",
+    "capture_count": 10,
+    "stitch_count": 1
+  },
+  "90f185e56768": {
+    "name": "Gallery Panorama",
+    "created_at": "2026-04-07T07:05:00.771278",
+    "capture_count": 10,
+    "stitch_count": 1
+  },
+  "280345f2927b": {
+    "name": "Gallery Panorama",
+    "created_at": "2026-04-07T07:05:53.747002",
+    "capture_count": 10,
+    "stitch_count": 1
+  },
+  "3e997f57313a": {
+    "name": "Gallery Panorama",
+    "created_at": "2026-04-07T07:07:26.614027"
+  },
+  "ec391d4b6ba1": {
+    "name": "Gallery Panorama",
+    "created_at": "2026-04-07T07:07:53.277443",
+    "capture_count": 10,
+    "stitch_count": 1
+  },
+  "0ac93fb1a925": {
+    "name": "Gallery Panorama",
+    "created_at": "2026-04-07T07:09:21.343673",
+    "capture_count": 10,
+    "stitch_count": 1
+  },
+  "2f85113d9df3": {
+    "name": "Gallery Panorama",
+    "created_at": "2026-04-07T07:09:48.242596",
+    "capture_count": 10,
+    "stitch_count": 1
+  },
+  "c8c411a7c39a": {
+    "name": "Gallery Panorama",
+    "created_at": "2026-04-07T07:10:02.473549",
+    "capture_count": 10,
+    "stitch_count": 1
+  },
+  "d9e7bd71abf1": {
+    "name": "Gallery Panorama",
+    "created_at": "2026-04-07T07:11:31.235642",
+    "capture_count": 10,
+    "stitch_count": 1
+  },
+  "sess_mnoa6xrdmuqu": {
+    "name": "Session 2026-04-07 07:11",
+    "created_at": "2026-04-07T07:11:58.275168",
+    "capture_count": 10,
+    "stitch_count": 1
+  },
+  "007de264e768": {
+    "name": "Gallery Panorama",
+    "created_at": "2026-04-07T07:13:51.139315",
+    "capture_count": 10,
+    "stitch_count": 1
+  },
+  "3014ca5e20fe": {
+    "name": "Gallery Panorama",
+    "created_at": "2026-04-07T07:15:03.200852"
+  },
+  "6a7bde6c6cd8": {
+    "name": "Gallery Panorama",
+    "created_at": "2026-04-07T07:15:37.327293",
+    "capture_count": 10,
+    "stitch_count": 1
+  },
+  "b4b63d96c2dc": {
+    "name": "Gallery Panorama",
+    "created_at": "2026-04-07T07:17:17.697637",
+    "capture_count": 10,
+    "stitch_count": 1
+  },
+  "66e69f4b28df": {
+    "name": "Gallery Panorama",
+    "created_at": "2026-04-07T07:18:55.605701",
+    "capture_count": 10,
+    "stitch_count": 1
+  },
+  "126b1e7184b7": {
+    "name": "Gallery Panorama",
+    "created_at": "2026-04-07T07:19:45.183765",
+    "capture_count": 10,
+    "stitch_count": 1
+  },
+  "9df6d0dd652a": {
+    "name": "Gallery Panorama",
+    "created_at": "2026-04-07T07:24:33.606469",
+    "capture_count": 10,
+    "stitch_count": 1
+  },
+  "2de2e2d8a143": {
+    "name": "Gallery Panorama",
+    "created_at": "2026-04-07T07:25:40.945297",
+    "capture_count": 10,
+    "stitch_count": 1
+  },
+  "08e492c4bdd3": {
+    "name": "Gallery Panorama",
+    "created_at": "2026-04-07T07:37:55.368127",
+    "capture_count": 10,
+    "stitch_count": 1
+  },
+  "e0a8a6cd6723": {
+    "name": "Gallery Panorama",
+    "created_at": "2026-04-07T07:40:35.181995",
+    "capture_count": 10,
+    "stitch_count": 1
+  },
+  "ec8b4bcc50fa": {
+    "name": "Gallery Panorama",
+    "created_at": "2026-04-07T07:42:27.648886",
+    "capture_count": 10,
+    "stitch_count": 0
+  },
+  "3d3c1897f132": {
+    "name": "Gallery Panorama",
+    "created_at": "2026-04-07T07:42:50.560728",
+    "capture_count": 10,
+    "stitch_count": 1
+  },
+  "0fa4326a0de1": {
+    "name": "Gallery Panorama",
+    "created_at": "2026-04-07T07:47:29.656876",
+    "capture_count": 10,
+    "stitch_count": 1
+  },
+  "7d80a3ef4aa3": {
+    "name": "Gallery Panorama",
+    "created_at": "2026-04-07T07:50:01.640055",
+    "capture_count": 10,
+    "stitch_count": 1
+  },
+  "e075fb243618": {
+    "name": "Gallery Panorama",
+    "created_at": "2026-04-07T07:50:50.694123"
+  },
+  "739330e7f25e": {
+    "name": "Gallery Panorama",
+    "created_at": "2026-04-07T07:51:39.881913"
+  },
+  "88c295cb1189": {
+    "name": "Gallery Panorama",
+    "created_at": "2026-04-07T07:52:38.772698"
+  },
+  "850815dfe20d": {
+    "name": "Gallery Panorama",
+    "created_at": "2026-04-07T07:53:01.585719",
+    "capture_count": 10,
+    "stitch_count": 1
+  },
+  "ce25df7b5ea6": {
+    "name": "Gallery Panorama",
+    "created_at": "2026-04-07T08:58:01.382439",
+    "capture_count": 10,
+    "stitch_count": 1
+  },
+  "4f202bad41b9": {
+    "name": "Gallery Panorama",
+    "created_at": "2026-04-07T08:59:25.462464",
+    "capture_count": 10,
+    "stitch_count": 1
+  },
+  "1e07873efdde": {
+    "name": "Gallery Panorama",
+    "created_at": "2026-04-07T09:02:20.953020",
+    "capture_count": 10,
+    "stitch_count": 1
+  },
+  "0f927f339c27": {
+    "name": "Gallery Panorama",
+    "created_at": "2026-04-07T09:04:00.385623",
+    "capture_count": 10,
+    "stitch_count": 1
+  },
+  "72b52e97e13b": {
+    "name": "Gallery Panorama",
+    "created_at": "2026-04-07T09:04:31.394438",
+    "capture_count": 10,
+    "stitch_count": 1
+  },
+  "e3469b7d9294": {
+    "name": "Gallery Panorama",
+    "created_at": "2026-04-07T09:06:50.208210",
+    "capture_count": 10,
+    "stitch_count": 1
+  },
+  "efe37f4d9942": {
+    "name": "Gallery Panorama",
+    "created_at": "2026-04-07T09:08:07.177042",
+    "capture_count": 10,
+    "stitch_count": 1
+  },
+  "3d57b7101d8e": {
+    "name": "Gallery Panorama",
+    "created_at": "2026-04-07T09:11:24.799759",
+    "capture_count": 10,
+    "stitch_count": 1
+  },
+  "b6571b06ad80": {
+    "name": "Gallery Panorama",
+    "created_at": "2026-04-07T09:12:11.728865",
+    "capture_count": 10,
+    "stitch_count": 1
+  },
+  "500ed6dc286b": {
+    "name": "Gallery Panorama",
+    "created_at": "2026-04-07T09:17:55.869503",
+    "capture_count": 10,
+    "stitch_count": 1
+  },
+  "183eaafe1722": {
+    "name": "Gallery Panorama",
+    "created_at": "2026-04-07T09:21:27.295389",
+    "capture_count": 10,
+    "stitch_count": 1
+  },
+  "908a804a6216": {
+    "name": "Gallery Panorama",
+    "created_at": "2026-04-07T09:29:03.809150",
+    "capture_count": 10,
+    "stitch_count": 1
+  },
+  "4427b9c540b3": {
+    "name": "Gallery Panorama",
+    "created_at": "2026-04-07T09:29:39.304007",
+    "capture_count": 10,
+    "stitch_count": 1
+  },
+  "ba22eddfa2bc": {
+    "name": "Gallery Panorama",
+    "created_at": "2026-04-07T09:31:38.914400",
+    "capture_count": 10,
+    "stitch_count": 1
+  },
+  "23b0f80aafef": {
+    "name": "Gallery Panorama",
+    "created_at": "2026-04-07T09:32:11.990981",
+    "capture_count": 10,
+    "stitch_count": 1
+  },
+  "f3e78096e6bd": {
+    "name": "Gallery Panorama",
+    "created_at": "2026-04-07T09:34:32.995986",
+    "capture_count": 10,
+    "stitch_count": 1
+  },
+  "bbbb4e5dd896": {
+    "name": "Gallery Panorama",
+    "created_at": "2026-04-07T09:35:08.978276",
+    "capture_count": 10,
+    "stitch_count": 1
+  },
+  "d66f4ab4c519": {
+    "name": "Gallery Panorama",
+    "created_at": "2026-04-07T09:35:38.662155",
+    "capture_count": 10,
+    "stitch_count": 1
+  },
+  "50d0786b3fdc": {
+    "name": "Gallery Panorama",
+    "created_at": "2026-04-07T09:38:14.947255",
+    "capture_count": 10,
+    "stitch_count": 1
+  },
+  "e58ce27ad7c3": {
+    "name": "Gallery Panorama",
+    "created_at": "2026-04-07T09:38:44.322676",
+    "capture_count": 10,
+    "stitch_count": 1
+  },
+  "db00e7b4cba1": {
+    "name": "Gallery Panorama",
+    "created_at": "2026-04-07T09:40:23.903420",
+    "capture_count": 10,
+    "stitch_count": 1
+  },
+  "6dbc52fdb46f": {
+    "name": "Gallery Panorama",
+    "created_at": "2026-04-07T09:41:01.683799",
+    "capture_count": 10,
     "stitch_count": 1
   }
 }
